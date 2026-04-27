@@ -1,0 +1,1 @@
+-- Seed data intentionally omitted for the MVP.
