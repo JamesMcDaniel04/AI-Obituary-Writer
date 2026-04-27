@@ -4,12 +4,43 @@ type ObituaryHtmlProps = {
   fullName: string;
   familyName: string;
   contentHtml: string;
+  branding?: {
+    organizationName: string | null;
+    logoUrl: string | null;
+  } | null;
 };
+
+function renderBrandingBlock(
+  branding: ObituaryHtmlProps["branding"],
+): string {
+  if (!branding) return "";
+
+  const parts: string[] = [];
+
+  if (branding.logoUrl) {
+    parts.push(
+      `<img class="brand-logo" src="${escapeHtml(branding.logoUrl)}" alt="${escapeHtml(
+        branding.organizationName ?? "Funeral home logo",
+      )}" />`,
+    );
+  }
+
+  if (branding.organizationName) {
+    parts.push(
+      `<div class="brand-name">${escapeHtml(branding.organizationName)}</div>`,
+    );
+  }
+
+  if (parts.length === 0) return "";
+
+  return `<header class="brand">${parts.join("")}</header>`;
+}
 
 export function renderObituaryHtml({
   fullName,
   familyName,
   contentHtml,
+  branding,
 }: ObituaryHtmlProps) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -24,7 +55,25 @@ export function renderObituaryHtml({
         font-family: Georgia, "Times New Roman", serif;
       }
       .page {
-        padding: 72px 64px 80px;
+        padding: 56px 64px 80px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        margin-bottom: 28px;
+      }
+      .brand-logo {
+        max-height: 56px;
+        max-width: 160px;
+        object-fit: contain;
+      }
+      .brand-name {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: #6d4326;
       }
       .eyebrow {
         text-align: center;
@@ -59,6 +108,7 @@ export function renderObituaryHtml({
   </head>
   <body>
     <main class="page">
+      ${renderBrandingBlock(branding ?? null)}
       <div class="eyebrow">Obituary</div>
       <h1>${escapeHtml(fullName || familyName)}</h1>
       <div class="rule"></div>

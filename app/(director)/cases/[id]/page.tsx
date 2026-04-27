@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { SendLinkForm } from "@/components/cases/send-link-form";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { GenerateDraftButton } from "@/components/editor/generate-draft-button";
 import { ObituaryEditor } from "@/components/editor/obituary-editor";
@@ -12,6 +13,7 @@ import {
   getResponsesByCaseId,
   rowsToAnswerMap,
 } from "@/lib/db/queries";
+import { isEmailEnabled } from "@/lib/email/send";
 import { getQuestionnaireProgress, getVisibleQuestions } from "@/lib/questions/engine";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { formatCaseStatus, formatDate, formatDateTime } from "@/lib/utils";
@@ -140,6 +142,10 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
             >
               Open questionnaire
             </a>
+          </div>
+
+          <div className="rounded-[1.75rem] border border-border bg-white/70 p-5">
+            <SendLinkForm caseId={caseId} enabled={isEmailEnabled()} />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">

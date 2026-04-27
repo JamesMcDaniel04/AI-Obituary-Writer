@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getLatestDraftForCase, getResponsesByCaseId, rowsToAnswerMap } from "@/lib/db/queries";
+import {
+  getDirectorBranding,
+  getLatestDraftForCase,
+  getResponsesByCaseId,
+  rowsToAnswerMap,
+} from "@/lib/db/queries";
 import { renderObituaryHtml } from "@/lib/pdf/template";
 import { renderPdfFromHtml } from "@/lib/pdf/render";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -46,10 +51,17 @@ export async function GET(_: Request, { params }: RouteContext) {
     const responses = await getResponsesByCaseId(caseRecord.id);
     const answers = rowsToAnswerMap(responses);
     const fullName = answers.full_name || caseRecord.family_name;
+    const branding = await getDirectorBranding(user.id);
     const html = renderObituaryHtml({
       familyName: caseRecord.family_name,
       fullName,
       contentHtml: draft.content,
+      branding: branding
+        ? {
+            organizationName: branding.organization_name,
+            logoUrl: branding.logo_url,
+          }
+        : null,
     });
     const pdf = await renderPdfFromHtml(html);
 

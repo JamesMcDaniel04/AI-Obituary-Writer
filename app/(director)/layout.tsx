@@ -38,6 +38,12 @@ export default async function DirectorLayout({
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            href="/branding"
+            className="rounded-full border border-border bg-white/80 px-5 py-3 text-sm font-medium text-foreground transition hover:border-accent/30"
+          >
+            Branding
+          </Link>
           <span className="rounded-full bg-white/70 px-4 py-2 text-sm text-muted">
             {user.email}
           </span>

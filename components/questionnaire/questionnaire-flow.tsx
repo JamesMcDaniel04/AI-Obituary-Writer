@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { QuestionCard } from "@/components/questionnaire/question-card";
@@ -14,7 +15,48 @@ type QuestionnaireFlowProps = {
     answered: number;
     total: number;
   };
+  branding?: {
+    organizationName: string | null;
+    logoUrl: string | null;
+  } | null;
 };
+
+type Branding = {
+  organizationName: string | null;
+  logoUrl: string | null;
+};
+
+function BrandingHeader({ branding }: Readonly<{ branding: Branding | null }>) {
+  if (branding?.logoUrl) {
+    return (
+      <div className="mb-6 inline-flex items-center gap-3 rounded-2xl bg-white/15 px-3 py-2">
+        <Image
+          src={branding.logoUrl}
+          alt={branding.organizationName ?? "Funeral home logo"}
+          width={40}
+          height={40}
+          unoptimized
+          className="h-10 w-10 rounded-md object-contain"
+        />
+        {branding.organizationName ? (
+          <span className="text-sm text-white/85">
+            {branding.organizationName}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (branding?.organizationName) {
+    return (
+      <p className="mb-6 text-xs uppercase tracking-[0.26em] text-white/70">
+        {branding.organizationName}
+      </p>
+    );
+  }
+
+  return null;
+}
 
 type ApiResponse = {
   done: boolean;
@@ -32,7 +74,8 @@ export function QuestionnaireFlow({
   familyName,
   initialQuestion,
   initialProgress,
-}: QuestionnaireFlowProps) {
+  branding,
+}: Readonly<QuestionnaireFlowProps>) {
   const router = useRouter();
   const [question, setQuestion] = useState(initialQuestion);
   const [progress, setProgress] = useState(initialProgress);
@@ -76,6 +119,7 @@ export function QuestionnaireFlow({
     <div className="shell grid min-h-screen gap-8 px-4 py-10 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] md:px-6 md:py-16">
       <aside className="flex flex-col justify-between rounded-[2.25rem] bg-[linear-gradient(160deg,rgba(143,81,48,0.98),rgba(62,34,24,0.94))] p-8 text-white shadow-[0_40px_80px_rgba(62,34,24,0.28)]">
         <div>
+          <BrandingHeader branding={branding ?? null} />
           <p className="text-sm uppercase tracking-[0.26em] text-white/70">
             {familyName}
           </p>

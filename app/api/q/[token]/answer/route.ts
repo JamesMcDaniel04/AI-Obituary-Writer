@@ -3,11 +3,15 @@ import { z } from "zod";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { getCaseByToken, getResponsesByCaseId, rowsToAnswerMap } from "@/lib/db/queries";
 import { assertValidAnswer, getQuestionnaireProgress, nextQuestion } from "@/lib/questions/engine";
+import { applyQuestionnaireRateLimit } from "@/lib/questionnaire/rate-limit";
+import { checkRateLimit, clientIpFrom } from "@/lib/rate-limit";
 
 const requestSchema = z.object({
   questionKey: z.string().min(1),
   answer: z.string(),
 });
+
+const RATE_LIMIT = { limit: 30, windowMs: 60_000 } as const;
 
 type RouteContext = {
   params: Promise<{
@@ -18,11 +22,50 @@ type RouteContext = {
 export async function POST(request: Request, { params }: RouteContext) {
   try {
     const { token } = await params;
+    const ip = clientIpFrom(request);
+    const limitCheck = checkRateLimit(`answer:${token}:${ip}`, RATE_LIMIT);
+
+    if (!limitCheck.ok) {
+      return NextResponse.json(
+        { error: "Too many requests. Please slow down and try again in a moment." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil(limitCheck.resetMs / 1000)),
+          },
+        },
+      );
+    }
+
     const parsed = requestSchema.parse(await request.json());
     const caseRecord = await getCaseByToken(token);
 
     if (!caseRecord) {
       return NextResponse.json({ error: "Invalid questionnaire link." }, { status: 404 });
+    }
+
+    const rateLimit = await applyQuestionnaireRateLimit(request, caseRecord.id);
+
+    if (!rateLimit.allowed) {
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil(
+          (new Date(rateLimit.resetAt).getTime() - Date.now()) / 1000,
+        ),
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Too many questionnaire submissions from this connection. Please wait a moment and try again.",
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(retryAfterSeconds),
+          },
+        },
+      );
     }
 
     const responses = await getResponsesByCaseId(caseRecord.id);

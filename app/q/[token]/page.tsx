@@ -1,6 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { QuestionnaireFlow } from "@/components/questionnaire/questionnaire-flow";
-import { getCaseByToken, getResponsesByCaseId, rowsToAnswerMap } from "@/lib/db/queries";
+import {
+  getBrandingForCaseToken,
+  getCaseByToken,
+  getResponsesByCaseId,
+  rowsToAnswerMap,
+} from "@/lib/db/queries";
 import { getQuestionnaireProgress, nextQuestion } from "@/lib/questions/engine";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +18,7 @@ type QuestionnairePageProps = {
 
 export default async function QuestionnairePage({
   params,
-}: QuestionnairePageProps) {
+}: Readonly<QuestionnairePageProps>) {
   const { token } = await params;
   const caseRecord = await getCaseByToken(token);
 
@@ -30,6 +35,7 @@ export default async function QuestionnairePage({
   }
 
   const progress = getQuestionnaireProgress(answers);
+  const branding = await getBrandingForCaseToken(token);
 
   return (
     <QuestionnaireFlow
@@ -37,6 +43,14 @@ export default async function QuestionnairePage({
       familyName={caseRecord.family_name}
       initialQuestion={currentQuestion}
       initialProgress={progress}
+      branding={
+        branding
+          ? {
+              organizationName: branding.organization_name,
+              logoUrl: branding.logo_url,
+            }
+          : null
+      }
     />
   );
 }

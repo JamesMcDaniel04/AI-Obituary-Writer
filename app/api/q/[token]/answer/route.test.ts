@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => {
       update: statusUpdate,
     };
   });
+  const applyQuestionnaireRateLimit = vi.fn();
 
   return {
     getCaseByToken,
@@ -31,6 +32,7 @@ const mocks = vi.hoisted(() => {
     statusUpdateEq,
     statusUpdate,
     from,
+    applyQuestionnaireRateLimit,
   };
 });
 
@@ -52,11 +54,17 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
+vi.mock("@/lib/questionnaire/rate-limit", () => ({
+  applyQuestionnaireRateLimit: mocks.applyQuestionnaireRateLimit,
+}));
+
 import { POST } from "@/app/api/q/[token]/answer/route";
+import { resetRateLimit } from "@/lib/rate-limit";
 
 describe("POST /api/q/[token]/answer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRateLimit();
     mocks.getCaseByToken.mockResolvedValue({
       id: "case-1",
       status: "questionnaire_sent",
@@ -67,6 +75,11 @@ describe("POST /api/q/[token]/answer", () => {
       key: "full_name",
       optional: false,
       type: "text",
+    });
+    mocks.applyQuestionnaireRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 59,
+      resetAt: new Date(Date.now() + 60_000).toISOString(),
     });
     mocks.upsert.mockResolvedValue({ error: null });
     mocks.statusUpdateEq.mockResolvedValue({ error: null });
@@ -123,5 +136,28 @@ describe("POST /api/q/[token]/answer", () => {
     );
 
     expect(response.status).toBe(409);
+  });
+
+  it("returns 429 when the rate limit is exceeded", async () => {
+    mocks.applyQuestionnaireRateLimit.mockResolvedValue({
+      allowed: false,
+      remaining: 0,
+      resetAt: new Date(Date.now() + 30_000).toISOString(),
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/q/token/answer", {
+        method: "POST",
+        body: JSON.stringify({
+          questionKey: "full_name",
+          answer: "Jane Doe",
+        }),
+      }),
+      { params: Promise.resolve({ token: "token" }) },
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBeTruthy();
+    expect(mocks.upsert).not.toHaveBeenCalled();
   });
 });
