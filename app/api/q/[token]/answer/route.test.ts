@@ -59,12 +59,10 @@ vi.mock("@/lib/questionnaire/rate-limit", () => ({
 }));
 
 import { POST } from "@/app/api/q/[token]/answer/route";
-import { resetRateLimit } from "@/lib/rate-limit";
 
 describe("POST /api/q/[token]/answer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    resetRateLimit();
     mocks.getCaseByToken.mockResolvedValue({
       id: "case-1",
       status: "questionnaire_sent",

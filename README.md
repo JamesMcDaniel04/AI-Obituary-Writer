@@ -73,6 +73,7 @@ pnpm dev               # Next.js dev server
 pnpm build             # Production build
 pnpm start             # Start the production server
 pnpm lint              # ESLint
+pnpm smoke             # Live smoke against a local or explicit Supabase stack
 pnpm typecheck         # tsc --noEmit
 pnpm test              # Vitest run
 pnpm test:watch        # Vitest watch mode
@@ -121,7 +122,7 @@ supabase/migrations         SQL migrations (schema, RLS, storage bucket)
 
 ## Testing
 
-Unit tests live next to the code they cover (`*.test.ts`) and run under Vitest. The smoke-test runbook in [`SMOKE_TEST.md`](SMOKE_TEST.md) walks through the full director-and-family flow against a real Supabase project.
+Unit tests live next to the code they cover (`*.test.ts`) and run under Vitest. `pnpm smoke` launches the app on a temporary port, signs two directors into a live Supabase stack, runs the questionnaire flow, proves the public questionnaire rate limit, verifies RLS isolation, saves an edit, and downloads a PDF. If Anthropic or OpenAI credentials are present in the environment it also exercises the real draft-generation route; otherwise it inserts a fixture draft so the rest of the smoke can still prove auth, autosave, and PDF rendering. The manual runbook in [`SMOKE_TEST.md`](SMOKE_TEST.md) still covers the full hosted release check.
 
 ## License
 

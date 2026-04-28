@@ -4,6 +4,8 @@ This walkthrough exercises the full director-and-family flow against a real Supa
 
 Estimated time: 15 minutes.
 
+For a faster automated pass against a live stack, run `pnpm smoke`. It boots the app on a temporary port, creates two real directors, completes the token questionnaire, verifies the questionnaire rate limit, checks RLS isolation, saves a draft edit, and downloads a PDF. If `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is present it also exercises the real draft-generation route; otherwise it inserts a fixture draft so the rest of the flow can still be proven.
+
 ## Prerequisites
 
 - A Supabase project (Cloud or local via `supabase start`).

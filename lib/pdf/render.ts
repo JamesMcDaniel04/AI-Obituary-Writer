@@ -17,16 +17,22 @@ async function resolveExecutablePath() {
   const localBrowser = resolveLocalBrowserPath();
 
   if (localBrowser) {
-    return localBrowser;
+    return {
+      executablePath: localBrowser,
+      launchArgs: [] as string[],
+    };
   }
 
-  return chromium.executablePath();
+  return {
+    executablePath: await chromium.executablePath(),
+    launchArgs: chromium.args,
+  };
 }
 
 export async function renderPdfFromHtml(html: string) {
-  const executablePath = await resolveExecutablePath();
+  const { executablePath, launchArgs } = await resolveExecutablePath();
   const browser = await puppeteer.launch({
-    args: chromium.args,
+    args: launchArgs,
     defaultViewport: { width: 1280, height: 720 },
     executablePath,
     headless: true,
