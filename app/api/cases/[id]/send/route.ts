@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getCurrentAppSession } from "@/lib/auth/session";
 import { getDirectorBranding } from "@/lib/db/queries";
 import { isEmailEnabled, sendQuestionnaireLinkEmail } from "@/lib/email/send";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -39,20 +40,17 @@ export async function POST(request: Request, { params }: RouteContext) {
   try {
     const { id } = await params;
     const parsed = requestSchema.parse(await request.json());
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const session = await getCurrentAppSession();
 
-    if (!user) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
 
+    const supabase = await createServerSupabaseClient();
     const { data: caseRecord, error } = await supabase
       .from("cases")
       .select("*")
       .eq("id", id)
-      .eq("director_id", user.id)
       .maybeSingle();
 
     if (error) {
@@ -63,7 +61,7 @@ export async function POST(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Case not found." }, { status: 404 });
     }
 
-    const branding = await getDirectorBranding(user.id);
+    const branding = await getDirectorBranding(caseRecord.director_id);
     const shareUrl = await buildShareUrl(caseRecord.questionnaire_token);
 
     await sendQuestionnaireLinkEmail({

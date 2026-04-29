@@ -4,7 +4,7 @@ A focused tool for funeral directors. Three screens:
 
 1. **Director dashboard** — list of active cases, "New case" button.
 2. **Family questionnaire** — shareable link, ~10 conversational questions on mobile, no account required.
-3. **Obituary editor** — AI-generated draft, inline Tiptap editing with an audit log, PDF export.
+3. **Obituary editor** — AI-generated draft, inline Tiptap editing with an audit log, PDF export, and a completed-draft snapshot when the case is delivered.
 
 Built with Next.js 15 (App Router), Supabase (Postgres + Auth + Storage), Tiptap, and a provider-switchable AI layer (Claude or OpenAI).
 
@@ -64,7 +64,7 @@ If you'd rather run the SQL by hand, paste the files in `supabase/migrations/` i
 pnpm dev
 ```
 
-Open `http://localhost:3000`, sign up as a director, and follow the dashboard.
+Open `http://localhost:3000`, sign up as a director, and follow the dashboard. The first authenticated request provisions a Postgres-backed profile row with the default `director` role; promote admins by updating `director_profiles.role` directly in Supabase.
 
 ## Scripts
 
@@ -88,7 +88,8 @@ app/
   (director)/dashboard      Screen 1
   (director)/cases/new      Create case form
   (director)/cases/[id]     Screen 3 (editor + share link)
-  (director)/branding       Director logo + organization name
+  (director)/settings       Profile settings, role visibility, logo + organization name
+  (director)/branding       Redirects to /settings for backwards compatibility
   q/[token]                 Screen 2 (no auth, mobile-first)
   api/cases/[id]/draft      POST: generate AI draft. PATCH: save edits + audit row.
   api/cases/[id]/pdf        GET: stream PDF
@@ -109,9 +110,10 @@ supabase/migrations         SQL migrations (schema, RLS, storage bucket)
 2. Director copies (or emails) the `/q/<token>` link.
 3. Family answers questions one at a time → `/api/q/<token>/answer` upserts rows in `questionnaire_responses`. Branching skips career/passions questions when the family marks the person as "private".
 4. Once all required answers are in, the case status flips to `draft_ready`.
-5. Director clicks "Generate draft" → `/api/cases/<id>/draft` (POST) calls the configured AI provider, writes a row to `obituary_drafts`.
+5. Director clicks "Generate draft" → `/api/cases/<id>/draft` (POST) calls the configured AI provider and writes a row to `obituary_drafts`.
 6. Director edits in Tiptap; debounced PATCH calls insert before/after rows in `obituary_edits` (audit trail).
 7. Director exports via "Copy to clipboard" or "Download PDF" (Puppeteer renders the HTML template) and marks the case delivered.
+8. Marking a case delivered upserts the current final version into `completed_drafts` so Postgres retains the exact delivered snapshot.
 
 ## Deploying to Vercel
 

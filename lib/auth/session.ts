@@ -1,0 +1,119 @@
+import type { User } from "@supabase/supabase-js";
+import { redirect } from "next/navigation";
+import type { Database } from "@/lib/db/types";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+
+type DirectorProfileRow = Database["public"]["Tables"]["director_profiles"]["Row"];
+
+export type AppSession = {
+  user: User;
+  profile: DirectorProfileRow;
+};
+
+function readMetadataString(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function getProfileSeedName(user: User) {
+  return (
+    readMetadataString(user.user_metadata?.full_name) ??
+    readMetadataString(user.user_metadata?.name)
+  );
+}
+
+async function syncCurrentUserProfile(
+  user: User,
+): Promise<DirectorProfileRow> {
+  const supabase = await createServerSupabaseClient();
+  const { data: existing, error } = await supabase
+    .from("director_profiles")
+    .select("*")
+    .eq("director_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const email = user.email ?? null;
+  const fullName = getProfileSeedName(user);
+
+  if (!existing) {
+    const { data: inserted, error: insertError } = await supabase
+      .from("director_profiles")
+      .insert({
+        director_id: user.id,
+        email,
+        full_name: fullName,
+      })
+      .select("*")
+      .single();
+
+    if (insertError) {
+      throw new Error(insertError.message);
+    }
+
+    return inserted;
+  }
+
+  const profilePatch: Database["public"]["Tables"]["director_profiles"]["Update"] =
+    {};
+
+  if ((existing.email ?? null) !== email) {
+    profilePatch.email = email;
+  }
+
+  if (!existing.full_name && fullName) {
+    profilePatch.full_name = fullName;
+  }
+
+  if (Object.keys(profilePatch).length === 0) {
+    return existing;
+  }
+
+  const { data: updated, error: updateError } = await supabase
+    .from("director_profiles")
+    .update(profilePatch)
+    .eq("director_id", user.id)
+    .select("*")
+    .single();
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+
+  return updated;
+}
+
+export async function getCurrentAppSession(): Promise<AppSession | null> {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  const profile = await syncCurrentUserProfile(user);
+  return { user, profile };
+}
+
+export async function requireAppSession(): Promise<AppSession> {
+  const session = await getCurrentAppSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  return session;
+}
+
+export function isAdmin(profile: DirectorProfileRow) {
+  return profile.role === "admin";
+}

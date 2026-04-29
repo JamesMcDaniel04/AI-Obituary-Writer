@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { requireAppSession } from "@/lib/auth/session";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -9,14 +10,8 @@ export default async function DirectorLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
+  const session = await requireAppSession();
+  const identity = session.profile.full_name || session.user.email || "Workspace user";
 
   async function signOutAction() {
     "use server";
@@ -39,13 +34,16 @@ export default async function DirectorLayout({
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href="/branding"
+            href="/settings"
             className="rounded-full border border-border bg-white/80 px-5 py-3 text-sm font-medium text-foreground transition hover:border-accent/30"
           >
-            Branding
+            Settings
           </Link>
           <span className="rounded-full bg-white/70 px-4 py-2 text-sm text-muted">
-            {user.email}
+            {identity}
+          </span>
+          <span className="rounded-full bg-accent-soft px-4 py-2 text-sm capitalize text-foreground">
+            {session.profile.role}
           </span>
           <form action={signOutAction}>
             <button className="rounded-full border border-border bg-white/80 px-5 py-3 text-sm font-medium text-foreground transition hover:border-accent/30">

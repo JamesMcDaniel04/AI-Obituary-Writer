@@ -79,32 +79,37 @@ For a faster automated pass against a live stack, run `pnpm smoke`. It boots the
 - Open the downloaded file.
 - **Expected:** Letter-size PDF with serif typography, the deceased's name centered as the heading, a thin horizontal rule, and the obituary body. No HTML escapes visible. Filename like `rivera-family-obituary.pdf`.
 
-### 9. Provider switch
+### 9. Mark delivered
+- Click "Mark delivered".
+- **Expected:** the case returns to `/dashboard` with status `Delivered`.
+- In the Supabase dashboard (or `supabase db remote-shell`), confirm one row in `completed_drafts` for the case with the latest draft HTML and a `completed_by` value matching the signed-in user.
+
+### 10. Provider switch
 - Stop the dev server. Set `AI_PROVIDER=openai` and `OPENAI_API_KEY=...` in `.env.local`. Restart.
 - Create a fresh case (don't reuse the Rivera one — drafts are upserted per-case). Run a brief questionnaire.
 - Click "Generate draft".
 - **Expected:** new `obituary_drafts` row with `ai_provider = 'openai'` and `model = 'gpt-4.1'`.
 
-### 10. RLS isolation
+### 11. RLS isolation
 - Sign out. Sign up as a second director with a different email.
 - **Expected:** `/dashboard` is empty. The first director's case is **not** visible.
 - Try fetching a known case ID: `http://localhost:3000/cases/<first-director-case-id>`.
 - **Expected:** `404`.
 
-### 11. Branding (optional)
-- As director #1, visit `/branding`.
-- Upload a small PNG/JPG (≤ 2 MB) and save your organization name.
+### 12. Settings (optional)
+- As director #1, visit `/settings`.
+- Upload a small PNG/JPG (≤ 2 MB), save your full name, and save your organization name.
 - Open the share link in incognito and the regenerated PDF.
-- **Expected:** logo appears in the questionnaire header and the top of the PDF.
+- **Expected:** logo appears in the questionnaire header and the top of the PDF. The role pill is visible on the settings screen, and `/branding` redirects to `/settings`.
 
-### 12. Send via email (optional, requires Resend)
+### 13. Send via email (optional, requires Resend)
 - With `RESEND_API_KEY` and `RESEND_FROM_EMAIL` configured, on `/cases/<id>` enter a recipient address and click "Email link".
 - **Expected:** the recipient receives a short message with the share URL within ~30s. Without the env vars, the email form is disabled and the copy-link UX remains the only path.
 
 ## Sanity scripts
 
 ```bash
-pnpm test                 # 8/8 unit tests should pass
+pnpm test                 # 9/9 unit tests should pass
 pnpm typecheck            # clean
 pnpm lint                 # clean
 pnpm build                # all routes build successfully

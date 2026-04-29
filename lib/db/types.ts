@@ -68,25 +68,72 @@ export type Database = {
         Row: {
           created_at: string
           director_id: string
+          email: string | null
+          full_name: string | null
           logo_path: string | null
           organization_name: string | null
+          role: Database["public"]["Enums"]["app_role"]
           updated_at: string
         }
         Insert: {
           created_at?: string
           director_id: string
+          email?: string | null
+          full_name?: string | null
           logo_path?: string | null
           organization_name?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Update: {
           created_at?: string
           director_id?: string
+          email?: string | null
+          full_name?: string | null
           logo_path?: string | null
           organization_name?: string | null
+          role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
         }
         Relationships: []
+      }
+      completed_drafts: {
+        Row: {
+          ai_provider: string
+          case_id: string
+          completed_at: string
+          completed_by: string
+          content: string
+          id: string
+          model: string
+        }
+        Insert: {
+          ai_provider: string
+          case_id: string
+          completed_at?: string
+          completed_by: string
+          content: string
+          id?: string
+          model: string
+        }
+        Update: {
+          ai_provider?: string
+          case_id?: string
+          completed_at?: string
+          completed_by?: string
+          content?: string
+          id?: string
+          model?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "completed_drafts_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: true
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       obituary_drafts: {
         Row: {
@@ -242,6 +289,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "director" | "admin"
       case_status: "questionnaire_sent" | "draft_ready" | "delivered"
     }
     CompositeTypes: {
@@ -373,8 +421,8 @@ export const Constants = {
   },
   public: {
     Enums: {
+      app_role: ["director", "admin"],
       case_status: ["questionnaire_sent", "draft_ready", "delivered"],
     },
   },
 } as const
-

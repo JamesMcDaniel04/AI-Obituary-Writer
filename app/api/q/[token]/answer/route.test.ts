@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const getCaseByToken = vi.fn();
-  const getResponsesByCaseId = vi.fn();
+  const getResponsesByCaseIdAdmin = vi.fn();
   const rowsToAnswerMap = vi.fn();
   const assertValidAnswer = vi.fn();
   const getQuestionnaireProgress = vi.fn();
@@ -23,7 +23,7 @@ const mocks = vi.hoisted(() => {
 
   return {
     getCaseByToken,
-    getResponsesByCaseId,
+    getResponsesByCaseIdAdmin,
     rowsToAnswerMap,
     assertValidAnswer,
     getQuestionnaireProgress,
@@ -38,7 +38,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("@/lib/db/queries", () => ({
   getCaseByToken: mocks.getCaseByToken,
-  getResponsesByCaseId: mocks.getResponsesByCaseId,
+  getResponsesByCaseIdAdmin: mocks.getResponsesByCaseIdAdmin,
   rowsToAnswerMap: mocks.rowsToAnswerMap,
 }));
 
@@ -67,7 +67,7 @@ describe("POST /api/q/[token]/answer", () => {
       id: "case-1",
       status: "questionnaire_sent",
     });
-    mocks.getResponsesByCaseId.mockResolvedValue([]);
+    mocks.getResponsesByCaseIdAdmin.mockResolvedValue([]);
     mocks.rowsToAnswerMap.mockReturnValue({});
     mocks.assertValidAnswer.mockReturnValue({
       key: "full_name",

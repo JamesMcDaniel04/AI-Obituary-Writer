@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { getCaseByToken, getResponsesByCaseId, rowsToAnswerMap } from "@/lib/db/queries";
+import {
+  getCaseByToken,
+  getResponsesByCaseIdAdmin,
+  rowsToAnswerMap,
+} from "@/lib/db/queries";
 import { assertValidAnswer, getQuestionnaireProgress, nextQuestion } from "@/lib/questions/engine";
 import { applyQuestionnaireRateLimit } from "@/lib/questionnaire/rate-limit";
 
@@ -50,7 +54,7 @@ export async function POST(request: Request, { params }: RouteContext) {
       );
     }
 
-    const responses = await getResponsesByCaseId(caseRecord.id);
+    const responses = await getResponsesByCaseIdAdmin(caseRecord.id);
     const answers = rowsToAnswerMap(responses);
     const currentQuestion = nextQuestion(answers);
 

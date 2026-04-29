@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCurrentAppSession } from "@/lib/auth/session";
 import {
   getDirectorBranding,
   getLatestDraftForCase,
@@ -18,20 +19,17 @@ type RouteContext = {
 export async function GET(_: Request, { params }: RouteContext) {
   try {
     const { id } = await params;
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const session = await getCurrentAppSession();
 
-    if (!user) {
+    if (!session) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
 
+    const supabase = await createServerSupabaseClient();
     const { data: caseRecord, error: caseError } = await supabase
       .from("cases")
       .select("*")
       .eq("id", id)
-      .eq("director_id", user.id)
       .maybeSingle();
 
     if (caseError) {
@@ -51,7 +49,7 @@ export async function GET(_: Request, { params }: RouteContext) {
     const responses = await getResponsesByCaseId(caseRecord.id);
     const answers = rowsToAnswerMap(responses);
     const fullName = answers.full_name || caseRecord.family_name;
-    const branding = await getDirectorBranding(user.id);
+    const branding = await getDirectorBranding(caseRecord.director_id);
     const html = renderObituaryHtml({
       familyName: caseRecord.family_name,
       fullName,

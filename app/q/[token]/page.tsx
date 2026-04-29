@@ -3,7 +3,7 @@ import { QuestionnaireFlow } from "@/components/questionnaire/questionnaire-flow
 import {
   getBrandingForCaseToken,
   getCaseByToken,
-  getResponsesByCaseId,
+  getResponsesByCaseIdAdmin,
   rowsToAnswerMap,
 } from "@/lib/db/queries";
 import { getQuestionnaireProgress, nextQuestion } from "@/lib/questions/engine";
@@ -26,7 +26,7 @@ export default async function QuestionnairePage({
     notFound();
   }
 
-  const responses = await getResponsesByCaseId(caseRecord.id);
+  const responses = await getResponsesByCaseIdAdmin(caseRecord.id);
   const answers = rowsToAnswerMap(responses);
   const currentQuestion = nextQuestion(answers);
 

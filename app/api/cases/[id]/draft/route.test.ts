@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
-  const authGetUser = vi.fn();
+  const getCurrentAppSession = vi.fn();
   const maybeSingle = vi.fn();
-  const eqDirector = vi.fn(() => ({ maybeSingle }));
-  const eqId = vi.fn(() => ({ eq: eqDirector }));
+  const eqId = vi.fn(() => ({ maybeSingle }));
   const select = vi.fn(() => ({ eq: eqId }));
-  const fromServer = vi.fn(() => ({ select }));
 
   const getLatestDraftForCase = vi.fn();
   const getResponsesByCaseId = vi.fn();
@@ -15,10 +13,19 @@ const mocks = vi.hoisted(() => {
   const generateObituary = vi.fn();
 
   const draftUpsert = vi.fn();
+  const statusUpdateEq = vi.fn();
+  const statusUpdate = vi.fn(() => ({ eq: statusUpdateEq }));
   const draftUpdateEq = vi.fn();
   const draftUpdate = vi.fn(() => ({ eq: draftUpdateEq }));
   const editInsert = vi.fn();
-  const adminFrom = vi.fn((table: string) => {
+  const fromServer = vi.fn((table: string) => {
+    if (table === "cases") {
+      return {
+        select,
+        update: statusUpdate,
+      };
+    }
+
     if (table === "obituary_drafts") {
       return {
         upsert: draftUpsert,
@@ -32,15 +39,12 @@ const mocks = vi.hoisted(() => {
       };
     }
 
-    return {
-      update: draftUpdate,
-    };
+    return { select };
   });
 
   return {
-    authGetUser,
+    getCurrentAppSession,
     maybeSingle,
-    eqDirector,
     eqId,
     select,
     fromServer,
@@ -50,18 +54,20 @@ const mocks = vi.hoisted(() => {
     getQuestionnaireProgress,
     generateObituary,
     draftUpsert,
+    statusUpdateEq,
+    statusUpdate,
     draftUpdateEq,
     draftUpdate,
     editInsert,
-    adminFrom,
   };
 });
 
+vi.mock("@/lib/auth/session", () => ({
+  getCurrentAppSession: mocks.getCurrentAppSession,
+}));
+
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: vi.fn(async () => ({
-    auth: {
-      getUser: mocks.authGetUser,
-    },
     from: mocks.fromServer,
   })),
 }));
@@ -80,22 +86,14 @@ vi.mock("@/lib/ai/provider", () => ({
   generateObituary: mocks.generateObituary,
 }));
 
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminSupabaseClient: () => ({
-    from: mocks.adminFrom,
-  }),
-}));
-
 import { PATCH, POST } from "@/app/api/cases/[id]/draft/route";
 
 describe("draft route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.authGetUser.mockResolvedValue({
-      data: {
-        user: {
-          id: "director-1",
-        },
+    mocks.getCurrentAppSession.mockResolvedValue({
+      user: {
+        id: "director-1",
       },
     });
     mocks.maybeSingle.mockResolvedValue({
@@ -122,7 +120,7 @@ describe("draft route", () => {
       model: "claude-opus-4-7",
     });
     mocks.draftUpsert.mockResolvedValue({ error: null });
-    mocks.draftUpdateEq.mockResolvedValue({ error: null });
+    mocks.statusUpdateEq.mockResolvedValue({ error: null });
 
     const response = await POST(
       new Request("http://localhost/api/cases/case-1/draft", {
@@ -134,6 +132,7 @@ describe("draft route", () => {
     expect(response.status).toBe(200);
     expect(mocks.generateObituary).toHaveBeenCalled();
     expect(mocks.draftUpsert).toHaveBeenCalled();
+    expect(mocks.statusUpdateEq).toHaveBeenCalled();
   });
 
   it("skips audit insertion when content has not changed", async () => {

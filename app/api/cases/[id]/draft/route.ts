@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { getCurrentAppSession } from "@/lib/auth/session";
 import { generateObituary } from "@/lib/ai/provider";
 import { getLatestDraftForCase, getResponsesByCaseId, rowsToAnswerMap } from "@/lib/db/queries";
 import { getQuestionnaireProgress } from "@/lib/questions/engine";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { textToHtml } from "@/lib/utils";
 
@@ -17,34 +17,31 @@ type RouteContext = {
   }>;
 };
 
-async function getOwnedCase(caseId: string) {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+async function getManagedCase(caseId: string) {
+  const session = await getCurrentAppSession();
 
-  if (!user) {
+  if (!session) {
     return { user: null, caseRecord: null };
   }
 
+  const supabase = await createServerSupabaseClient();
   const { data: caseRecord, error } = await supabase
     .from("cases")
     .select("*")
     .eq("id", caseId)
-    .eq("director_id", user.id)
     .maybeSingle();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return { user, caseRecord };
+  return { user: session.user, caseRecord };
 }
 
 export async function POST(_: Request, { params }: RouteContext) {
   try {
     const { id } = await params;
-    const { user, caseRecord } = await getOwnedCase(id);
+    const { user, caseRecord } = await getManagedCase(id);
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
@@ -73,9 +70,9 @@ export async function POST(_: Request, { params }: RouteContext) {
 
     const generated = await generateObituary(answers);
     const contentHtml = textToHtml(generated.content);
-    const admin = createAdminSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
-    const { error: draftError } = await admin.from("obituary_drafts").upsert(
+    const { error: draftError } = await supabase.from("obituary_drafts").upsert(
       {
         case_id: caseRecord.id,
         content: contentHtml,
@@ -91,7 +88,7 @@ export async function POST(_: Request, { params }: RouteContext) {
       throw draftError;
     }
 
-    const { error: statusError } = await admin
+    const { error: statusError } = await supabase
       .from("cases")
       .update({ status: "draft_ready" })
       .eq("id", caseRecord.id);
@@ -118,7 +115,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const { id } = await params;
     const parsed = patchSchema.parse(await request.json());
-    const { user, caseRecord } = await getOwnedCase(id);
+    const { user, caseRecord } = await getManagedCase(id);
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
@@ -138,8 +135,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ ok: true, saved: false });
     }
 
-    const admin = createAdminSupabaseClient();
-    const { error: updateError } = await admin
+    const supabase = await createServerSupabaseClient();
+    const { error: updateError } = await supabase
       .from("obituary_drafts")
       .update({ content: parsed.content })
       .eq("case_id", caseRecord.id);
@@ -148,7 +145,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       throw updateError;
     }
 
-    const { error: auditError } = await admin.from("obituary_edits").insert({
+    const { error: auditError } = await supabase.from("obituary_edits").insert({
       case_id: caseRecord.id,
       director_id: user.id,
       content_before: draft.content,

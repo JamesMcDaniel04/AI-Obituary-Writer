@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
+import { requireAppSession } from "@/lib/auth/session";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,20 +18,14 @@ export default function NewCasePage() {
       throw new Error("Family name is required.");
     }
 
+    const session = await requireAppSession();
     const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      redirect("/login");
-    }
 
     const questionnaireToken = randomUUID().replaceAll("-", "");
     const { data, error } = await supabase
       .from("cases")
       .insert({
-        director_id: user.id,
+        director_id: session.user.id,
         family_name: familyName,
         questionnaire_token: questionnaireToken,
       })

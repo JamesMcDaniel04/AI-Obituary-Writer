@@ -1,22 +1,13 @@
-import { redirect } from "next/navigation";
+import { requireAppSession } from "@/lib/auth/session";
 import { CaseList } from "@/components/dashboard/case-list";
 import { NewCaseButton } from "@/components/dashboard/new-case-button";
-import { listCasesForDirector } from "@/lib/db/queries";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { listCasesForCurrentUser } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  const cases = await listCasesForDirector(user.id);
+  const session = await requireAppSession();
+  const cases = await listCasesForCurrentUser();
 
   return (
     <div className="space-y-8 pb-12">
@@ -27,11 +18,14 @@ export default async function DashboardPage() {
               Dashboard
             </p>
             <h1 className="mt-2 font-serif text-5xl text-foreground">
-              Keep the drafting process focused.
+              {session.profile.role === "admin"
+                ? "Review every draft moving through the workspace."
+                : "Keep the drafting process focused."}
             </h1>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-muted">
-              Every case starts with one family name and ends with a draft you
-              can edit, export, and mark as delivered.
+              {session.profile.role === "admin"
+                ? "Admin access can review every case, while director ownership still controls the normal day-to-day flow."
+                : "Every case starts with one family name and ends with a draft you can edit, export, and mark as delivered."}
             </p>
           </div>
           <NewCaseButton />

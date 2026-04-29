@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/db/types";
 import { getRequiredEnv } from "@/lib/env";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/cases"];
+const PROTECTED_PREFIXES = ["/dashboard", "/cases", "/settings", "/branding"];
 
 function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some(

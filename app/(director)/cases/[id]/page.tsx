@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { requireAppSession } from "@/lib/auth/session";
 import { SendLinkForm } from "@/components/cases/send-link-form";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { GenerateDraftButton } from "@/components/editor/generate-draft-button";
@@ -8,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  getCaseForDirector,
+  getCaseForCurrentUser,
+  getCompletedDraftForCase,
   getLatestDraftForCase,
   getResponsesByCaseId,
   rowsToAnswerMap,
@@ -39,22 +41,15 @@ async function buildShareUrl(token: string) {
 
 export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   const { id } = await params;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  const caseRecord = await getCaseForDirector(id, user.id);
+  await requireAppSession();
+  const caseRecord = await getCaseForCurrentUser(id);
 
   if (!caseRecord) {
     notFound();
   }
 
   const draft = await getLatestDraftForCase(caseRecord.id);
+  const completedDraft = await getCompletedDraftForCase(caseRecord.id);
   const responses = await getResponsesByCaseId(caseRecord.id);
   const answers = rowsToAnswerMap(responses);
   const progress = getQuestionnaireProgress(answers);
@@ -66,20 +61,40 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   async function markDeliveredAction() {
     "use server";
 
+    const session = await requireAppSession();
     const actionSupabase = await createServerSupabaseClient();
-    const {
-      data: { user: actionUser },
-    } = await actionSupabase.auth.getUser();
+    const { data: latestDraft, error: latestDraftError } = await actionSupabase
+      .from("obituary_drafts")
+      .select("*")
+      .eq("case_id", caseId)
+      .single();
 
-    if (!actionUser) {
-      redirect("/login");
+    if (latestDraftError) {
+      throw new Error(latestDraftError.message);
+    }
+
+    const { error: completedDraftError } = await actionSupabase
+      .from("completed_drafts")
+      .upsert(
+        {
+          case_id: caseId,
+          completed_by: session.user.id,
+          content: latestDraft.content,
+          ai_provider: latestDraft.ai_provider,
+          model: latestDraft.model,
+          completed_at: new Date().toISOString(),
+        },
+        { onConflict: "case_id" },
+      );
+
+    if (completedDraftError) {
+      throw new Error(completedDraftError.message);
     }
 
     const { error } = await actionSupabase
       .from("cases")
       .update({ status: "delivered" })
       .eq("id", caseId)
-      .eq("director_id", actionUser.id);
 
     if (error) {
       throw new Error(error.message);
@@ -217,18 +232,40 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                 familyName={fullName}
                 initialContent={draft.content}
               />
+              {completedDraft ? (
+                <Card>
+                  <p className="text-sm uppercase tracking-[0.24em] text-muted">
+                    Completed snapshot
+                  </p>
+                  <h3 className="mt-2 font-serif text-3xl text-foreground">
+                    Final draft archived in Postgres.
+                  </h3>
+                  <p className="mt-4 text-sm leading-7 text-muted">
+                    Saved {formatDateTime(completedDraft.completed_at)} as the
+                    last delivered version for this case.
+                  </p>
+                </Card>
+              ) : null}
               <Card className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-sm uppercase tracking-[0.24em] text-muted">
                     Case status
                   </p>
                   <h3 className="mt-2 font-serif text-3xl text-foreground">
-                    Mark delivered when the draft leaves your desk.
+                    {caseRecord.status === "delivered"
+                      ? "Refresh the delivered snapshot after any final edits."
+                      : "Mark delivered when the draft leaves your desk."}
                   </h3>
+                  <p className="mt-3 text-sm leading-7 text-muted">
+                    This action stores the current draft in Postgres as the
+                    completed version for this case.
+                  </p>
                 </div>
                 <form action={markDeliveredAction}>
                   <Button type="submit" variant="danger">
-                    Mark delivered
+                    {caseRecord.status === "delivered"
+                      ? "Update delivered snapshot"
+                      : "Mark delivered"}
                   </Button>
                 </form>
               </Card>
