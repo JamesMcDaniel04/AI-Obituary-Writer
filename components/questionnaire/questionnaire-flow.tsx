@@ -131,7 +131,7 @@ export function QuestionnaireFlow({
             funeral director preparing the obituary draft.
           </p>
         </div>
-        <div className="mt-10 rounded-[1.75rem] bg-white/12 p-5">
+        <div className="mt-10 rounded-[1.9rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.06))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_40px_rgba(22,10,6,0.12)] backdrop-blur-sm">
           <ProgressBar answered={progress.answered} total={progress.total} />
         </div>
       </aside>
