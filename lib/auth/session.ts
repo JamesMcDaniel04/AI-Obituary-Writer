@@ -10,6 +10,23 @@ export type AppSession = {
   profile: DirectorProfileRow;
 };
 
+function formatProfileSyncError(error: { message: string }) {
+  const message = error.message.toLowerCase();
+  const looksLikeMissingRbacSchema =
+    message.includes("director_profiles") &&
+    (message.includes("full_name") ||
+      message.includes("email") ||
+      message.includes("role") ||
+      message.includes("schema cache") ||
+      message.includes("column"));
+
+  if (looksLikeMissingRbacSchema) {
+    return "The database is missing the RBAC profile migration. Apply supabase/migrations/0004_profiles_rbac_completed_drafts.sql and reload.";
+  }
+
+  return error.message;
+}
+
 function readMetadataString(value: unknown) {
   if (typeof value !== "string") {
     return null;
@@ -37,7 +54,7 @@ async function syncCurrentUserProfile(
     .maybeSingle();
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(formatProfileSyncError(error));
   }
 
   const email = user.email ?? null;
@@ -55,7 +72,7 @@ async function syncCurrentUserProfile(
       .single();
 
     if (insertError) {
-      throw new Error(insertError.message);
+      throw new Error(formatProfileSyncError(insertError));
     }
 
     return inserted;
@@ -84,7 +101,7 @@ async function syncCurrentUserProfile(
     .single();
 
   if (updateError) {
-    throw new Error(updateError.message);
+    throw new Error(formatProfileSyncError(updateError));
   }
 
   return updated;
