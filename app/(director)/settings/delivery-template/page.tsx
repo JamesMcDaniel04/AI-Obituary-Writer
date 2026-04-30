@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getDeliveryTemplateOrDefault } from "@/lib/db/queries";
+import {
+  deliverySchemaReady,
+  getDeliveryTemplateOrDefault,
+} from "@/lib/db/queries";
 import {
   DELIVERY_PLACEHOLDERS,
   DEFAULT_DELIVERY_TEMPLATE,
@@ -15,6 +18,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DeliveryTemplatePage() {
   const session = await requireAppSession();
+  const schemaReady = await deliverySchemaReady();
   const template = await getDeliveryTemplateOrDefault(session.user.id);
 
   async function saveAction(formData: FormData) {
@@ -94,6 +98,16 @@ export default async function DeliveryTemplatePage() {
           </p>
         </div>
 
+        {!schemaReady ? (
+          <div className="rounded-[1.5rem] border border-dashed border-warning/40 bg-warning/5 p-5 text-sm leading-6 text-foreground">
+            Delivery tables are missing. Apply{" "}
+            <span className="font-mono">
+              supabase/migrations/0005_delivery_templates.sql
+            </span>{" "}
+            and reload before saving — defaults are shown below for preview.
+          </div>
+        ) : null}
+
         <div className="rounded-[1.5rem] border border-dashed border-border bg-white/60 p-5">
           <p className="text-xs uppercase tracking-[0.18em] text-muted">
             Available placeholders
@@ -130,12 +144,14 @@ export default async function DeliveryTemplatePage() {
           </label>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit">Save template</Button>
+            <Button type="submit" disabled={!schemaReady}>
+              Save template
+            </Button>
           </div>
         </form>
 
         <form action={resetAction}>
-          <Button type="submit" variant="secondary">
+          <Button type="submit" variant="secondary" disabled={!schemaReady}>
             Reset to default
           </Button>
         </form>

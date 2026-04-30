@@ -309,6 +309,26 @@ export async function getDirectorBranding(
 export type DeliveryTemplateRow =
   Database["public"]["Tables"]["delivery_templates"]["Row"];
 
+export class DeliverySchemaMissingError extends Error {
+  constructor() {
+    super(
+      "Delivery tables are missing. Apply supabase/migrations/0005_delivery_templates.sql and reload.",
+    );
+    this.name = "DeliverySchemaMissingError";
+  }
+}
+
+function isDeliverySchemaMissing(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  if (error.code === "42P01" || error.code === "42703") return true;
+  const message = error.message?.toLowerCase() ?? "";
+  return (
+    message.includes("delivery_templates") ||
+    message.includes("delivery_token") ||
+    message.includes("delivery_log")
+  );
+}
+
 export async function getDeliveryTemplate(directorId: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
@@ -317,7 +337,14 @@ export async function getDeliveryTemplate(directorId: string) {
     .eq("director_id", directorId)
     .maybeSingle();
 
-  return ensureData<DeliveryTemplateRow | null>(data, error);
+  if (error) {
+    if (isDeliverySchemaMissing(error)) {
+      return null;
+    }
+    throw new Error(error.message);
+  }
+
+  return data;
 }
 
 export async function getDeliveryTemplateOrDefault(directorId: string) {
@@ -333,6 +360,18 @@ export async function getDeliveryTemplateOrDefault(directorId: string) {
   };
 }
 
+export async function deliverySchemaReady() {
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase
+    .from("delivery_templates")
+    .select("director_id", { head: true, count: "exact" })
+    .limit(1);
+
+  if (!error) return true;
+  if (isDeliverySchemaMissing(error)) return false;
+  throw new Error(error.message);
+}
+
 export async function ensureDeliveryToken(caseId: string) {
   const supabase = await createServerSupabaseClient();
   const { data: caseRecord, error: fetchError } = await supabase
@@ -342,6 +381,9 @@ export async function ensureDeliveryToken(caseId: string) {
     .single();
 
   if (fetchError) {
+    if (isDeliverySchemaMissing(fetchError)) {
+      throw new DeliverySchemaMissingError();
+    }
     throw new Error(fetchError.message);
   }
 
@@ -356,6 +398,9 @@ export async function ensureDeliveryToken(caseId: string) {
     .eq("id", caseId);
 
   if (updateError) {
+    if (isDeliverySchemaMissing(updateError)) {
+      throw new DeliverySchemaMissingError();
+    }
     throw new Error(updateError.message);
   }
 
