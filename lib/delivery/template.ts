@@ -12,6 +12,37 @@ export type DeliveryPlaceholder = (typeof DELIVERY_PLACEHOLDERS)[number];
 
 export type DeliveryVars = Record<DeliveryPlaceholder, string>;
 
+export const DELIVERY_PLACEHOLDER_META: Record<
+  DeliveryPlaceholder,
+  { label: string; description: string; example: string }
+> = {
+  full_name: {
+    label: "Full name",
+    description: "The deceased's full name from intake.",
+    example: "Margaret Rivera",
+  },
+  family_name: {
+    label: "Family name",
+    description: "The family name on the case.",
+    example: "Rivera",
+  },
+  director_name: {
+    label: "Your name",
+    description: "Director's full name from profile.",
+    example: "Jamie Rivera",
+  },
+  organization_name: {
+    label: "Organization",
+    description: "Funeral home name from branding.",
+    example: "Rivera Memorial Home",
+  },
+  share_link: {
+    label: "Share link",
+    description: "Public link to the finished obituary.",
+    example: "https://…/o/abc123",
+  },
+};
+
 export const DEFAULT_DELIVERY_TEMPLATE = {
   subject: "{{full_name}} — final obituary",
   body: [

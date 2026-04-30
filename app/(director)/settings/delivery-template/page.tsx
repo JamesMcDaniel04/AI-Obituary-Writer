@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { requireAppSession } from "@/lib/auth/session";
+import { DeliveryPlaceholderChips } from "@/components/settings/delivery-placeholder-chips";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,10 +9,7 @@ import {
   deliverySchemaReady,
   getDeliveryTemplateOrDefault,
 } from "@/lib/db/queries";
-import {
-  DELIVERY_PLACEHOLDERS,
-  DEFAULT_DELIVERY_TEMPLATE,
-} from "@/lib/delivery/template";
+import { DEFAULT_DELIVERY_TEMPLATE } from "@/lib/delivery/template";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -108,18 +106,7 @@ export default async function DeliveryTemplatePage() {
           </div>
         ) : null}
 
-        <div className="rounded-[1.5rem] border border-dashed border-border bg-white/60 p-5">
-          <p className="text-xs uppercase tracking-[0.18em] text-muted">
-            Available placeholders
-          </p>
-          <ul className="mt-3 grid gap-2 text-sm text-foreground sm:grid-cols-2">
-            {DELIVERY_PLACEHOLDERS.map((token) => (
-              <li key={token} className="font-mono text-foreground">
-                {`{{${token}}}`}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <DeliveryPlaceholderChips />
 
         <form action={saveAction} className="space-y-5">
           <label className="block space-y-2">
