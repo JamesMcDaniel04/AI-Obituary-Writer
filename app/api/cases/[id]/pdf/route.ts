@@ -1,13 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentAppSession } from "@/lib/auth/session";
-import {
-  getDirectorBranding,
-  getLatestDraftForCase,
-  getResponsesByCaseId,
-  rowsToAnswerMap,
-} from "@/lib/db/queries";
-import { renderObituaryHtml } from "@/lib/pdf/template";
-import { renderPdfFromHtml } from "@/lib/pdf/render";
+import { buildObituaryPdfForCase } from "@/lib/pdf/build";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type RouteContext = {
@@ -40,33 +33,12 @@ export async function GET(_: Request, { params }: RouteContext) {
       return NextResponse.json({ error: "Case not found." }, { status: 404 });
     }
 
-    const draft = await getLatestDraftForCase(caseRecord.id);
+    const { buffer, filename } = await buildObituaryPdfForCase(caseRecord);
 
-    if (!draft) {
-      return NextResponse.json({ error: "Draft not found." }, { status: 404 });
-    }
-
-    const responses = await getResponsesByCaseId(caseRecord.id);
-    const answers = rowsToAnswerMap(responses);
-    const fullName = answers.full_name || caseRecord.family_name;
-    const branding = await getDirectorBranding(caseRecord.director_id);
-    const html = renderObituaryHtml({
-      familyName: caseRecord.family_name,
-      fullName,
-      contentHtml: draft.content,
-      branding: branding
-        ? {
-            organizationName: branding.organization_name,
-            logoUrl: branding.logo_url,
-          }
-        : null,
-    });
-    const pdf = await renderPdfFromHtml(html);
-
-    return new NextResponse(pdf, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${caseRecord.family_name.toLowerCase().replaceAll(/\s+/g, "-")}-obituary.pdf"`,
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {

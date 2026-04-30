@@ -1,10 +1,15 @@
 import Image from "next/image";
 import { revalidatePath } from "next/cache";
+import { isAdmin, requireAppSession } from "@/lib/auth/session";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { requireAppSession } from "@/lib/auth/session";
-import { getDirectorBranding } from "@/lib/db/queries";
+import {
+  getDirectorBranding,
+  listDirectorProfilesForCurrentUser,
+} from "@/lib/db/queries";
+import type { Database } from "@/lib/db/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +21,23 @@ const ALLOWED_TYPES = new Set([
   "image/svg+xml",
 ]);
 const MAX_BYTES = 2 * 1024 * 1024;
+const APP_ROLES = ["director", "admin"] as const satisfies ReadonlyArray<
+  Database["public"]["Enums"]["app_role"]
+>;
+type AppRole = Database["public"]["Enums"]["app_role"];
+
+function isAppRole(value: string): value is AppRole {
+  return APP_ROLES.includes(value as AppRole);
+}
+
+function roleCopy(role: AppRole) {
+  switch (role) {
+    case "admin":
+      return "Can review every case and edit workspace RBAC.";
+    case "director":
+      return "Works inside their own cases and drafts.";
+  }
+}
 
 function extensionFor(mime: string) {
   switch (mime) {
@@ -34,7 +56,11 @@ function extensionFor(mime: string) {
 
 export default async function SettingsPage() {
   const session = await requireAppSession();
+  const adminMode = isAdmin(session.profile);
   const branding = await getDirectorBranding(session.user.id);
+  const workspaceProfiles = adminMode
+    ? await listDirectorProfilesForCurrentUser()
+    : [];
 
   async function saveSettingsAction(formData: FormData) {
     "use server";
@@ -115,6 +141,73 @@ export default async function SettingsPage() {
     revalidatePath("/settings");
     revalidatePath("/branding");
     revalidatePath("/dashboard");
+    revalidatePath("/cases");
+  }
+
+  async function updateRoleAction(formData: FormData) {
+    "use server";
+
+    const actionSession = await requireAppSession();
+
+    if (!isAdmin(actionSession.profile)) {
+      throw new Error("Only admins can edit workspace roles.");
+    }
+
+    const directorId = String(formData.get("directorId") ?? "").trim();
+    const nextRoleInput = String(formData.get("role") ?? "").trim();
+
+    if (!directorId) {
+      throw new Error("A target profile is required.");
+    }
+
+    if (!isAppRole(nextRoleInput)) {
+      throw new Error("That role is not valid for this workspace.");
+    }
+
+    const nextRole: AppRole = nextRoleInput;
+
+    const actionSupabase = await createServerSupabaseClient();
+    const { data: targetProfile, error: targetError } = await actionSupabase
+      .from("director_profiles")
+      .select("*")
+      .eq("director_id", directorId)
+      .single();
+
+    if (targetError) {
+      throw new Error(targetError.message);
+    }
+
+    if (targetProfile.role === nextRole) {
+      return;
+    }
+
+    if (targetProfile.role === "admin" && nextRole === "director") {
+      const { data: adminProfiles, error: adminError } = await actionSupabase
+        .from("director_profiles")
+        .select("director_id")
+        .eq("role", "admin");
+
+      if (adminError) {
+        throw new Error(adminError.message);
+      }
+
+      if ((adminProfiles?.length ?? 0) <= 1) {
+        throw new Error("The last admin cannot be changed to director.");
+      }
+    }
+
+    const { error: updateError } = await actionSupabase
+      .from("director_profiles")
+      .update({ role: nextRole })
+      .eq("director_id", directorId);
+
+    if (updateError) {
+      throw new Error(updateError.message);
+    }
+
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
+    revalidatePath("/cases");
   }
 
   return (
@@ -151,8 +244,9 @@ export default async function SettingsPage() {
               {session.profile.role}
             </p>
             <p className="mt-2 text-xs leading-6 text-muted">
-              Roles are assigned through Postgres-backed profile records and are
-              not self-editable here.
+              {adminMode
+                ? "This account can update RBAC assignments below."
+                : "Roles are assigned through Postgres-backed profile records and are not self-editable here."}
             </p>
           </div>
         </div>
@@ -219,6 +313,96 @@ export default async function SettingsPage() {
           <Button type="submit">Save settings</Button>
         </form>
       </Card>
+
+      {adminMode ? (
+        <Card className="fade-up space-y-6">
+          <div>
+            <p className="text-sm uppercase tracking-[0.24em] text-muted">
+              Postgres RBAC
+            </p>
+            <h2 className="mt-2 font-serif text-4xl text-foreground">
+              Edit workspace roles from the frontend.
+            </h2>
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-muted">
+              These controls write directly to
+              <span className="mx-1 font-mono text-foreground">
+                director_profiles.role
+              </span>
+              and immediately affect the RBAC checks used by Postgres policies.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {workspaceProfiles.map((profile) => {
+              const label =
+                profile.full_name?.trim() ||
+                profile.email?.trim() ||
+                profile.director_id;
+              const isCurrentUser = profile.director_id === session.user.id;
+
+              return (
+                <form
+                  key={profile.director_id}
+                  action={updateRoleAction}
+                  className="rounded-[1.5rem] border border-border bg-white/75 p-5"
+                >
+                  <input
+                    type="hidden"
+                    name="directorId"
+                    value={profile.director_id}
+                  />
+
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-foreground">
+                          {label}
+                        </p>
+                        {isCurrentUser ? (
+                          <Badge>Current account</Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-2 text-sm text-muted">
+                        {profile.email ?? "No email on file"}
+                      </p>
+                      <p className="mt-2 text-xs leading-6 text-muted">
+                        {roleCopy(profile.role)}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-end gap-3">
+                      <label className="block space-y-2">
+                        <span className="text-xs uppercase tracking-[0.18em] text-muted">
+                          Role
+                        </span>
+                        <select
+                          name="role"
+                          defaultValue={profile.role}
+                          className="h-12 min-w-[11rem] rounded-2xl border border-border bg-white/85 px-4 text-sm text-foreground outline-none transition focus:border-accent focus:ring-2 focus:ring-accent-soft"
+                        >
+                          {APP_ROLES.map((role) => (
+                            <option key={role} value={role}>
+                              {role}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <Button type="submit" variant="secondary">
+                        Save role
+                      </Button>
+                    </div>
+                  </div>
+                </form>
+              );
+            })}
+          </div>
+
+          <div className="rounded-[1.5rem] border border-dashed border-border bg-white/60 px-5 py-4 text-xs leading-6 text-muted">
+            Users appear here after their first successful sign-in. The last
+            admin account cannot be demoted from this interface.
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }

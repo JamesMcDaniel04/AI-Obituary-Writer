@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
 import type { Database } from "@/lib/db/types";
 import {
   getCaseStage,
   type TrackedCase,
 } from "@/lib/cases/tracking";
+import { DEFAULT_DELIVERY_TEMPLATE } from "@/lib/delivery/template";
 import { getQuestionnaireProgress } from "@/lib/questions/engine";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -277,11 +279,160 @@ export async function getDirectorProfile(directorId: string) {
   return ensureData<DirectorProfileRow | null>(data, error);
 }
 
+export async function listDirectorProfilesForCurrentUser() {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase.from("director_profiles").select("*");
+
+  const profiles = ensureData(data ?? [], error);
+
+  return profiles.sort((left, right) => {
+    if (left.role !== right.role) {
+      return left.role === "admin" ? -1 : 1;
+    }
+
+    const leftLabel =
+      left.full_name?.trim() || left.email?.trim() || left.director_id;
+    const rightLabel =
+      right.full_name?.trim() || right.email?.trim() || right.director_id;
+
+    return leftLabel.localeCompare(rightLabel);
+  });
+}
+
 export async function getDirectorBranding(
   directorId: string,
 ): Promise<DirectorBranding | null> {
   const profile = await getDirectorProfile(directorId);
   return brandingToView(profile);
+}
+
+export type DeliveryTemplateRow =
+  Database["public"]["Tables"]["delivery_templates"]["Row"];
+
+export async function getDeliveryTemplate(directorId: string) {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("delivery_templates")
+    .select("*")
+    .eq("director_id", directorId)
+    .maybeSingle();
+
+  return ensureData<DeliveryTemplateRow | null>(data, error);
+}
+
+export async function getDeliveryTemplateOrDefault(directorId: string) {
+  const existing = await getDeliveryTemplate(directorId);
+
+  if (existing) {
+    return { subject: existing.subject, body: existing.body };
+  }
+
+  return {
+    subject: DEFAULT_DELIVERY_TEMPLATE.subject,
+    body: DEFAULT_DELIVERY_TEMPLATE.body,
+  };
+}
+
+export async function ensureDeliveryToken(caseId: string) {
+  const supabase = await createServerSupabaseClient();
+  const { data: caseRecord, error: fetchError } = await supabase
+    .from("cases")
+    .select("delivery_token")
+    .eq("id", caseId)
+    .single();
+
+  if (fetchError) {
+    throw new Error(fetchError.message);
+  }
+
+  if (caseRecord.delivery_token) {
+    return caseRecord.delivery_token;
+  }
+
+  const token = randomUUID().replaceAll("-", "");
+  const { error: updateError } = await supabase
+    .from("cases")
+    .update({ delivery_token: token })
+    .eq("id", caseId);
+
+  if (updateError) {
+    throw new Error(updateError.message);
+  }
+
+  return token;
+}
+
+export async function getCaseByDeliveryToken(token: string) {
+  const admin = createAdminSupabaseClient();
+  const { data, error } = await admin
+    .from("cases")
+    .select("*")
+    .eq("delivery_token", token)
+    .maybeSingle();
+
+  return ensureData<CaseRow | null>(data, error);
+}
+
+export async function getCompletedDraftByDeliveryToken(token: string) {
+  const admin = createAdminSupabaseClient();
+  const { data: caseRecord, error: caseError } = await admin
+    .from("cases")
+    .select("id, director_id, family_name")
+    .eq("delivery_token", token)
+    .maybeSingle();
+
+  if (caseError) {
+    throw new Error(caseError.message);
+  }
+
+  if (!caseRecord) {
+    return null;
+  }
+
+  const { data: completed, error: completedError } = await admin
+    .from("completed_drafts")
+    .select("*")
+    .eq("case_id", caseRecord.id)
+    .maybeSingle();
+
+  if (completedError) {
+    throw new Error(completedError.message);
+  }
+
+  if (!completed) {
+    return null;
+  }
+
+  const { data: responses, error: responsesError } = await admin
+    .from("questionnaire_responses")
+    .select("question_key, answer")
+    .eq("case_id", caseRecord.id);
+
+  if (responsesError) {
+    throw new Error(responsesError.message);
+  }
+
+  const answers: AnswerMap = {};
+  for (const row of responses ?? []) {
+    answers[row.question_key] = row.answer;
+  }
+
+  const { data: profile, error: profileError } = await admin
+    .from("director_profiles")
+    .select("*")
+    .eq("director_id", caseRecord.director_id)
+    .maybeSingle();
+
+  if (profileError) {
+    throw new Error(profileError.message);
+  }
+
+  return {
+    case: caseRecord,
+    completed,
+    fullName: answers.full_name?.trim() || caseRecord.family_name,
+    branding: brandingToView(profile),
+  };
 }
 
 export async function getBrandingForCaseToken(

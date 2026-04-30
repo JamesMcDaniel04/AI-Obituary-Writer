@@ -37,6 +37,7 @@ export type Database = {
       cases: {
         Row: {
           created_at: string
+          delivery_token: string | null
           director_id: string
           family_name: string
           id: string
@@ -46,6 +47,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          delivery_token?: string | null
           director_id: string
           family_name: string
           id?: string
@@ -55,6 +57,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          delivery_token?: string | null
           director_id?: string
           family_name?: string
           id?: string
@@ -63,6 +66,68 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      delivery_templates: {
+        Row: {
+          body: string
+          director_id: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          director_id: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          director_id?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      delivery_log: {
+        Row: {
+          case_id: string
+          id: string
+          provider_message_id: string | null
+          recipient: string
+          sent_at: string
+          sent_by: string
+          share_url: string
+          subject: string
+        }
+        Insert: {
+          case_id: string
+          id?: string
+          provider_message_id?: string | null
+          recipient: string
+          sent_at?: string
+          sent_by: string
+          share_url: string
+          subject: string
+        }
+        Update: {
+          case_id?: string
+          id?: string
+          provider_message_id?: string | null
+          recipient?: string
+          sent_at?: string
+          sent_by?: string
+          share_url?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_log_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       director_profiles: {
         Row: {

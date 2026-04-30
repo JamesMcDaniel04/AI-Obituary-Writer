@@ -5,6 +5,7 @@ import {
   FolderOpen,
   FileText,
   LayoutDashboard,
+  Mail,
   Palette,
   PlusCircle,
 } from "lucide-react";
@@ -42,6 +43,13 @@ const baseNavItems: NavItem[] = [
     label: "Brand & profile",
     icon: Palette,
     match: ["/settings", "/branding"],
+    exclude: ["/settings/delivery-template"],
+  },
+  {
+    href: "/settings/delivery-template",
+    label: "Delivery template",
+    icon: Mail,
+    match: ["/settings/delivery-template"],
   },
 ];
 

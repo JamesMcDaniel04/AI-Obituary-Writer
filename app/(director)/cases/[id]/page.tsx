@@ -1,12 +1,12 @@
 import { headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { requireAppSession } from "@/lib/auth/session";
 import { SendLinkForm } from "@/components/cases/send-link-form";
 import { CopyLinkButton } from "@/components/copy-link-button";
 import { GenerateDraftButton } from "@/components/editor/generate-draft-button";
 import { ObituaryEditor } from "@/components/editor/obituary-editor";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   getCaseForCurrentUser,
@@ -17,7 +17,6 @@ import {
 } from "@/lib/db/queries";
 import { isEmailEnabled } from "@/lib/email/send";
 import { getQuestionnaireProgress, getVisibleQuestions } from "@/lib/questions/engine";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { formatCaseStatus, formatDate, formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -57,51 +56,6 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   const visibleQuestions = getVisibleQuestions(answers);
   const fullName = answers.full_name || caseRecord.family_name;
   const caseId = caseRecord.id;
-
-  async function markDeliveredAction() {
-    "use server";
-
-    const session = await requireAppSession();
-    const actionSupabase = await createServerSupabaseClient();
-    const { data: latestDraft, error: latestDraftError } = await actionSupabase
-      .from("obituary_drafts")
-      .select("*")
-      .eq("case_id", caseId)
-      .single();
-
-    if (latestDraftError) {
-      throw new Error(latestDraftError.message);
-    }
-
-    const { error: completedDraftError } = await actionSupabase
-      .from("completed_drafts")
-      .upsert(
-        {
-          case_id: caseId,
-          completed_by: session.user.id,
-          content: latestDraft.content,
-          ai_provider: latestDraft.ai_provider,
-          model: latestDraft.model,
-          completed_at: new Date().toISOString(),
-        },
-        { onConflict: "case_id" },
-      );
-
-    if (completedDraftError) {
-      throw new Error(completedDraftError.message);
-    }
-
-    const { error } = await actionSupabase
-      .from("cases")
-      .update({ status: "delivered" })
-      .eq("id", caseId)
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    redirect("/dashboard");
-  }
 
   return (
     <div className="space-y-6 pb-12">
@@ -253,21 +207,23 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                   </p>
                   <h3 className="mt-2 font-serif text-3xl text-foreground">
                     {caseRecord.status === "delivered"
-                      ? "Refresh the delivered snapshot after any final edits."
-                      : "Mark delivered when the draft leaves your desk."}
+                      ? "Resend the delivery email after any final edits."
+                      : "Send the obituary to the family."}
                   </h3>
                   <p className="mt-3 text-sm leading-7 text-muted">
-                    This action stores the current draft in Postgres as the
-                    completed version for this case.
+                    Review the email, attach the PDF, and email the family a
+                    public link. This also archives the current draft as the
+                    delivered version.
                   </p>
                 </div>
-                <form action={markDeliveredAction}>
-                  <Button type="submit" variant="danger">
-                    {caseRecord.status === "delivered"
-                      ? "Update delivered snapshot"
-                      : "Mark delivered"}
-                  </Button>
-                </form>
+                <Link
+                  href={`/cases/${caseId}/deliver`}
+                  className="inline-flex items-center justify-center rounded-full bg-accent px-6 py-3 text-sm font-medium text-white transition hover:opacity-90"
+                >
+                  {caseRecord.status === "delivered"
+                    ? "Resend delivery"
+                    : "Prepare delivery"}
+                </Link>
               </Card>
             </div>
           ) : null}

@@ -62,3 +62,64 @@ export async function sendQuestionnaireLinkEmail({
     id?: string;
   } | null;
 }
+
+export type SendDeliveryEmailArgs = {
+  to: string;
+  subject: string;
+  bodyText: string;
+  bodyHtml: string;
+  pdf?: {
+    filename: string;
+    buffer: Buffer;
+  };
+};
+
+export async function sendDeliveryEmail({
+  to,
+  subject,
+  bodyText,
+  bodyHtml,
+  pdf,
+}: SendDeliveryEmailArgs) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM_EMAIL;
+
+  if (!apiKey || !from) {
+    throw new Error("Email sending is not configured.");
+  }
+
+  const payload: Record<string, unknown> = {
+    from,
+    to,
+    subject,
+    text: bodyText,
+    html: bodyHtml,
+  };
+
+  if (pdf) {
+    payload.attachments = [
+      {
+        filename: pdf.filename,
+        content: pdf.buffer.toString("base64"),
+      },
+    ];
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => response.statusText);
+    throw new Error(`Email provider rejected the request: ${message}`);
+  }
+
+  return (await response.json().catch(() => null)) as {
+    id?: string;
+  } | null;
+}
