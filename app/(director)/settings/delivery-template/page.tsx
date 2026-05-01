@@ -1,10 +1,9 @@
 import { revalidatePath } from "next/cache";
 import { requireAppSession } from "@/lib/auth/session";
 import { DeliveryPlaceholderChips } from "@/components/settings/delivery-placeholder-chips";
-import { Button } from "@/components/ui/button";
+import { DeliveryTemplateEditor } from "@/components/settings/delivery-template-editor";
+import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   deliverySchemaReady,
   getDeliveryTemplateOrDefault,
@@ -77,7 +76,8 @@ export default async function DeliveryTemplatePage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 pb-12">
+    <div className="mx-auto max-w-5xl space-y-6 pb-12">
+      <SettingsTabs />
       <Card className="fade-up space-y-6">
         <div>
           <p className="text-sm uppercase tracking-[0.24em] text-muted">
@@ -108,40 +108,13 @@ export default async function DeliveryTemplatePage() {
 
         <DeliveryPlaceholderChips />
 
-        <form action={saveAction} className="space-y-5">
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-foreground">Subject</span>
-            <Input
-              name="subject"
-              required
-              defaultValue={template.subject}
-              placeholder={DEFAULT_DELIVERY_TEMPLATE.subject}
-            />
-          </label>
-
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-foreground">Body</span>
-            <Textarea
-              name="body"
-              required
-              defaultValue={template.body}
-              placeholder={DEFAULT_DELIVERY_TEMPLATE.body}
-              className="min-h-72 font-mono text-sm leading-6"
-            />
-          </label>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" disabled={!schemaReady}>
-              Save template
-            </Button>
-          </div>
-        </form>
-
-        <form action={resetAction}>
-          <Button type="submit" variant="secondary" disabled={!schemaReady}>
-            Reset to default
-          </Button>
-        </form>
+        <DeliveryTemplateEditor
+          initialSubject={template.subject}
+          initialBody={template.body}
+          schemaReady={schemaReady}
+          saveAction={saveAction}
+          resetAction={resetAction}
+        />
       </Card>
     </div>
   );

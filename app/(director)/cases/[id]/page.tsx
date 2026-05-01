@@ -28,6 +28,30 @@ type CaseDetailPageProps = {
   }>;
 };
 
+type CaseStatus = "questionnaire_sent" | "draft_ready" | "delivered";
+
+function statusTone(status: CaseStatus): "success" | "warning" | "default" {
+  if (status === "draft_ready") return "success";
+  if (status === "questionnaire_sent") return "warning";
+  return "default";
+}
+
+function draftLabel(hasDraft: boolean, complete: boolean) {
+  if (hasDraft) return "Ready";
+  if (complete) return "Pending";
+  return "Waiting";
+}
+
+function deliveryHistoryHeading(count: number, hasCompleted: boolean) {
+  if (count > 0) {
+    return `Sent ${count} time${count === 1 ? "" : "s"}.`;
+  }
+  if (hasCompleted) {
+    return "Final draft archived in Postgres.";
+  }
+  return "No deliveries yet.";
+}
+
 async function buildShareUrl(token: string) {
   const headerStore = await headers();
   const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
@@ -76,7 +100,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
               the obituary draft.
             </p>
           </div>
-          <Badge tone={caseRecord.status === "draft_ready" ? "success" : caseRecord.status === "questionnaire_sent" ? "warning" : "default"}>
+          <Badge tone={statusTone(caseRecord.status)}>
             {formatCaseStatus(caseRecord.status)}
           </Badge>
         </div>
@@ -133,7 +157,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                 Draft
               </p>
               <p className="mt-2 text-2xl font-semibold text-foreground">
-                {draft ? "Ready" : progress.complete ? "Pending" : "Waiting"}
+                {draftLabel(Boolean(draft), progress.complete)}
               </p>
             </div>
             <div className="rounded-[1.5rem] bg-accent-soft px-4 py-4">
@@ -195,9 +219,10 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                       Delivery history
                     </p>
                     <h3 className="mt-2 font-serif text-3xl text-foreground">
-                      {deliveryLog.length > 0
-                        ? `Sent ${deliveryLog.length} time${deliveryLog.length === 1 ? "" : "s"}.`
-                        : "Final draft archived in Postgres."}
+                      {deliveryHistoryHeading(
+                        deliveryLog.length,
+                        Boolean(completedDraft),
+                      )}
                     </h3>
                     <p className="mt-3 text-sm leading-7 text-muted">
                       Snapshot saved{" "}
@@ -270,9 +295,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           </h2>
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             {visibleQuestions
-              .filter((question) =>
-                Object.prototype.hasOwnProperty.call(answers, question.key),
-              )
+              .filter((question) => Object.hasOwn(answers, question.key))
               .map((question) => (
                 <div
                   key={question.key}

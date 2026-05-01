@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { revalidatePath } from "next/cache";
 import { isAdmin, requireAppSession } from "@/lib/auth/session";
+import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -212,6 +213,7 @@ export default async function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 pb-12">
+      <SettingsTabs />
       <Card className="fade-up space-y-6">
         <div>
           <p className="text-sm uppercase tracking-[0.24em] text-muted">

@@ -5,8 +5,7 @@ import {
   FolderOpen,
   FileText,
   LayoutDashboard,
-  Mail,
-  Palette,
+  Settings,
   PlusCircle,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -40,16 +39,9 @@ const baseNavItems: NavItem[] = [
   },
   {
     href: "/settings",
-    label: "Brand & profile",
-    icon: Palette,
+    label: "Settings",
+    icon: Settings,
     match: ["/settings", "/branding"],
-    exclude: ["/settings/delivery-template"],
-  },
-  {
-    href: "/settings/delivery-template",
-    label: "Delivery template",
-    icon: Mail,
-    match: ["/settings/delivery-template"],
   },
 ];
 
