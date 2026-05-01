@@ -13,6 +13,7 @@ import {
   getCompletedDraftForCase,
   getLatestDraftForCase,
   getResponsesByCaseId,
+  listDeliveryLogForCase,
   rowsToAnswerMap,
 } from "@/lib/db/queries";
 import { isEmailEnabled } from "@/lib/email/send";
@@ -49,6 +50,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
 
   const draft = await getLatestDraftForCase(caseRecord.id);
   const completedDraft = await getCompletedDraftForCase(caseRecord.id);
+  const deliveryLog = await listDeliveryLogForCase(caseRecord.id);
   const responses = await getResponsesByCaseId(caseRecord.id);
   const answers = rowsToAnswerMap(responses);
   const progress = getQuestionnaireProgress(answers);
@@ -187,17 +189,45 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                 initialContent={draft.content}
               />
               {completedDraft ? (
-                <Card>
-                  <p className="text-sm uppercase tracking-[0.24em] text-muted">
-                    Completed snapshot
-                  </p>
-                  <h3 className="mt-2 font-serif text-3xl text-foreground">
-                    Final draft archived in Postgres.
-                  </h3>
-                  <p className="mt-4 text-sm leading-7 text-muted">
-                    Saved {formatDateTime(completedDraft.completed_at)} as the
-                    last delivered version for this case.
-                  </p>
+                <Card className="space-y-5">
+                  <div>
+                    <p className="text-sm uppercase tracking-[0.24em] text-muted">
+                      Delivery history
+                    </p>
+                    <h3 className="mt-2 font-serif text-3xl text-foreground">
+                      {deliveryLog.length > 0
+                        ? `Sent ${deliveryLog.length} time${deliveryLog.length === 1 ? "" : "s"}.`
+                        : "Final draft archived in Postgres."}
+                    </h3>
+                    <p className="mt-3 text-sm leading-7 text-muted">
+                      Snapshot saved{" "}
+                      {formatDateTime(completedDraft.completed_at)} as the last
+                      delivered version for this case.
+                    </p>
+                  </div>
+
+                  {deliveryLog.length > 0 ? (
+                    <ol className="space-y-3 border-t border-border pt-5">
+                      {deliveryLog.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className="rounded-[1.25rem] border border-border bg-white/75 px-4 py-3"
+                        >
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <p className="text-sm font-medium text-foreground">
+                              {entry.recipient}
+                            </p>
+                            <p className="text-xs text-muted">
+                              {formatDateTime(entry.sent_at)}
+                            </p>
+                          </div>
+                          <p className="mt-1 truncate text-xs text-muted">
+                            {entry.subject}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : null}
                 </Card>
               ) : null}
               <Card className="flex flex-wrap items-center justify-between gap-4">

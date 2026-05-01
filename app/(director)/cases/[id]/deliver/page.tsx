@@ -1,11 +1,11 @@
 import { headers } from "next/headers";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  DeliveryForm,
+  type DeliveryActionResult,
+} from "@/components/cases/delivery-form";
 import { requireAppSession } from "@/lib/auth/session";
 import {
   ensureDeliveryToken,
@@ -44,8 +44,13 @@ async function buildShareUrl(token: string) {
   return new URL(`/o/${token}`, baseUrl).toString();
 }
 
-const deliveryFormSchema = z.object({
+const sendSchema = z.object({
   recipient: z.string().email("Enter a valid email address."),
+  subject: z.string().min(1, "Subject is required."),
+  body: z.string().min(1, "Body is required."),
+});
+
+const testSchema = z.object({
   subject: z.string().min(1, "Subject is required."),
   body: z.string().min(1, "Body is required."),
 });
@@ -86,93 +91,167 @@ export default async function DeliverPage({ params }: DeliverPageProps) {
 
   const rendered = renderDeliveryTemplate(template, vars);
   const emailEnabled = isEmailEnabled();
+  const testRecipient = session.profile.email?.trim() || session.user.email || null;
   const caseId = caseRecord.id;
 
-  async function sendDeliveryAction(formData: FormData) {
+  async function deliveryAction(
+    _state: DeliveryActionResult,
+    formData: FormData,
+  ): Promise<DeliveryActionResult> {
     "use server";
 
-    if (!isEmailEnabled()) {
-      throw new Error("Email sending is not configured.");
-    }
-
-    const parsed = deliveryFormSchema.parse({
+    const intent = String(formData.get("intent") ?? "send");
+    const values = {
       recipient: String(formData.get("recipient") ?? ""),
       subject: String(formData.get("subject") ?? ""),
       body: String(formData.get("body") ?? ""),
-    });
+    };
+
+    if (!isEmailEnabled()) {
+      return { error: "Email sending is not configured.", values };
+    }
 
     const actionSession = await requireAppSession();
-    const actionSupabase = await createServerSupabaseClient();
 
-    const { data: latestDraft, error: latestDraftError } = await actionSupabase
-      .from("obituary_drafts")
-      .select("*")
-      .eq("case_id", caseId)
-      .single();
+    if (intent === "test") {
+      const parsed = testSchema.safeParse(values);
+      if (!parsed.success) {
+        return {
+          error: parsed.error.issues[0]?.message ?? "Subject and body are required.",
+          values,
+        };
+      }
 
-    if (latestDraftError) {
-      throw new Error(latestDraftError.message);
+      const recipient =
+        actionSession.profile.email?.trim() ||
+        actionSession.user.email ||
+        null;
+
+      if (!recipient) {
+        return {
+          error:
+            "We don't have an email on your profile to send the test to. Add one in Settings first.",
+          values,
+        };
+      }
+
+      try {
+        const { data: latestCase, error: caseFetchError } = await (
+          await createServerSupabaseClient()
+        )
+          .from("cases")
+          .select("*")
+          .eq("id", caseId)
+          .single();
+
+        if (caseFetchError) {
+          throw new Error(caseFetchError.message);
+        }
+
+        const { buffer, filename } = await buildObituaryPdfForCase(latestCase);
+        const subjectWithTag = `[TEST] ${parsed.data.subject}`;
+
+        await sendDeliveryEmail({
+          to: recipient,
+          subject: subjectWithTag,
+          bodyText: parsed.data.body,
+          bodyHtml: deliveryBodyToHtml(parsed.data.body),
+          fromName:
+            branding?.organization_name ?? vars.director_name ?? null,
+          pdf: { filename, buffer },
+        });
+
+        return { testSentTo: recipient, values };
+      } catch (error) {
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Test send failed for an unknown reason.",
+          values,
+        };
+      }
     }
 
-    const { data: latestCase, error: caseFetchError } = await actionSupabase
-      .from("cases")
-      .select("*")
-      .eq("id", caseId)
-      .single();
-
-    if (caseFetchError) {
-      throw new Error(caseFetchError.message);
+    const parsed = sendSchema.safeParse(values);
+    if (!parsed.success) {
+      return {
+        error: parsed.error.issues[0]?.message ?? "Please fix the form errors.",
+        values,
+      };
     }
 
-    const { buffer, filename } = await buildObituaryPdfForCase(latestCase);
+    try {
+      const actionSupabase = await createServerSupabaseClient();
+      const { data: latestDraft, error: latestDraftError } = await actionSupabase
+        .from("obituary_drafts")
+        .select("*")
+        .eq("case_id", caseId)
+        .single();
 
-    await sendDeliveryEmail({
-      to: parsed.recipient,
-      subject: parsed.subject,
-      bodyText: parsed.body,
-      bodyHtml: deliveryBodyToHtml(parsed.body),
-      pdf: { filename, buffer },
-    });
+      if (latestDraftError) throw new Error(latestDraftError.message);
 
-    const { error: completedDraftError } = await actionSupabase
-      .from("completed_drafts")
-      .upsert(
-        {
-          case_id: caseId,
-          completed_by: actionSession.user.id,
-          content: latestDraft.content,
-          ai_provider: latestDraft.ai_provider,
-          model: latestDraft.model,
-          completed_at: new Date().toISOString(),
-        },
-        { onConflict: "case_id" },
-      );
+      const { data: latestCase, error: caseFetchError } = await actionSupabase
+        .from("cases")
+        .select("*")
+        .eq("id", caseId)
+        .single();
 
-    if (completedDraftError) {
-      throw new Error(completedDraftError.message);
-    }
+      if (caseFetchError) throw new Error(caseFetchError.message);
 
-    const { error: caseError } = await actionSupabase
-      .from("cases")
-      .update({ status: "delivered" })
-      .eq("id", caseId);
+      const { buffer, filename } = await buildObituaryPdfForCase(latestCase);
 
-    if (caseError) {
-      throw new Error(caseError.message);
-    }
-
-    const { error: logError } = await actionSupabase
-      .from("delivery_log")
-      .insert({
-        case_id: caseId,
-        sent_by: actionSession.user.id,
-        recipient: parsed.recipient,
-        subject: parsed.subject,
-        share_url: shareUrl,
+      await sendDeliveryEmail({
+        to: parsed.data.recipient,
+        subject: parsed.data.subject,
+        bodyText: parsed.data.body,
+        bodyHtml: deliveryBodyToHtml(parsed.data.body),
+        fromName: branding?.organization_name ?? vars.director_name ?? null,
+        pdf: { filename, buffer },
       });
 
-    if (logError) {
-      throw new Error(logError.message);
+      const { error: completedDraftError } = await actionSupabase
+        .from("completed_drafts")
+        .upsert(
+          {
+            case_id: caseId,
+            completed_by: actionSession.user.id,
+            content: latestDraft.content,
+            ai_provider: latestDraft.ai_provider,
+            model: latestDraft.model,
+            completed_at: new Date().toISOString(),
+          },
+          { onConflict: "case_id" },
+        );
+
+      if (completedDraftError) throw new Error(completedDraftError.message);
+
+      const { error: caseError } = await actionSupabase
+        .from("cases")
+        .update({ status: "delivered" })
+        .eq("id", caseId);
+
+      if (caseError) throw new Error(caseError.message);
+
+      const { error: logError } = await actionSupabase
+        .from("delivery_log")
+        .insert({
+          case_id: caseId,
+          sent_by: actionSession.user.id,
+          recipient: parsed.data.recipient,
+          subject: parsed.data.subject,
+          share_url: shareUrl,
+        });
+
+      if (logError) throw new Error(logError.message);
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Delivery failed for an unknown reason.",
+        values,
+      };
     }
 
     redirect("/dashboard");
@@ -211,46 +290,14 @@ export default async function DeliverPage({ params }: DeliverPageProps) {
           </div>
         ) : null}
 
-        <form action={sendDeliveryAction} className="space-y-5">
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-foreground">
-              Recipient email
-            </span>
-            <Input
-              name="recipient"
-              type="email"
-              required
-              placeholder="family@example.com"
-            />
-          </label>
-
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-foreground">Subject</span>
-            <Input name="subject" required defaultValue={rendered.subject} />
-          </label>
-
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-foreground">Body</span>
-            <Textarea
-              name="body"
-              required
-              defaultValue={rendered.body}
-              className="min-h-72 font-serif text-sm leading-7"
-            />
-          </label>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <Button type="submit" disabled={!emailEnabled}>
-              Send & mark delivered
-            </Button>
-            <Link
-              href={`/cases/${caseRecord.id}`}
-              className="text-sm font-medium text-muted transition hover:text-foreground"
-            >
-              Cancel
-            </Link>
-          </div>
-        </form>
+        <DeliveryForm
+          caseId={caseId}
+          defaultSubject={rendered.subject}
+          defaultBody={rendered.body}
+          testRecipient={testRecipient}
+          emailEnabled={emailEnabled}
+          action={deliveryAction}
+        />
       </Card>
     </div>
   );

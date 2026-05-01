@@ -360,6 +360,27 @@ export async function getDeliveryTemplateOrDefault(directorId: string) {
   };
 }
 
+export type DeliveryLogRow =
+  Database["public"]["Tables"]["delivery_log"]["Row"];
+
+export async function listDeliveryLogForCase(
+  caseId: string,
+): Promise<DeliveryLogRow[]> {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("delivery_log")
+    .select("*")
+    .eq("case_id", caseId)
+    .order("sent_at", { ascending: false });
+
+  if (error) {
+    if (isDeliverySchemaMissing(error)) return [];
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
+}
+
 export async function deliverySchemaReady() {
   const supabase = await createServerSupabaseClient();
   const { error } = await supabase

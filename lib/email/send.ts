@@ -2,6 +2,39 @@ export function isEmailEnabled() {
   return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
 }
 
+const ANGLE_BRACKETS = /[<>]/g;
+
+function sanitizeDisplayName(name: string | null | undefined) {
+  if (!name) return null;
+  const cleaned = name.replaceAll(ANGLE_BRACKETS, "").trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function parseFromAddress(raw: string) {
+  const match = /^\s*"?([^"<]*)"?\s*<([^>]+)>\s*$/.exec(raw);
+  if (match) {
+    return { name: match[1].trim() || null, email: match[2].trim() };
+  }
+  return { name: null, email: raw.trim() };
+}
+
+function buildFromHeader(displayName?: string | null) {
+  const raw = process.env.RESEND_FROM_EMAIL;
+  if (!raw) {
+    throw new Error("Email sending is not configured.");
+  }
+
+  const parsed = parseFromAddress(raw);
+  const name = sanitizeDisplayName(displayName) ?? parsed.name;
+
+  if (!name) {
+    return parsed.email;
+  }
+
+  // RFC 5322 quoted display name keeps commas and other punctuation safe.
+  return `"${name.replaceAll('"', "")}" <${parsed.email}>`;
+}
+
 export type SendQuestionnaireLinkArgs = {
   to: string;
   shareUrl: string;
@@ -16,12 +49,12 @@ export async function sendQuestionnaireLinkEmail({
   organizationName,
 }: SendQuestionnaireLinkArgs) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
 
-  if (!apiKey || !from) {
+  if (!apiKey || !process.env.RESEND_FROM_EMAIL) {
     throw new Error("Email sending is not configured.");
   }
 
+  const from = buildFromHeader(organizationName);
   const subject = organizationName
     ? `${organizationName} — obituary questions for the ${familyName} family`
     : `Obituary questions for the ${familyName} family`;
@@ -68,6 +101,7 @@ export type SendDeliveryEmailArgs = {
   subject: string;
   bodyText: string;
   bodyHtml: string;
+  fromName?: string | null;
   pdf?: {
     filename: string;
     buffer: Buffer;
@@ -79,14 +113,16 @@ export async function sendDeliveryEmail({
   subject,
   bodyText,
   bodyHtml,
+  fromName,
   pdf,
 }: SendDeliveryEmailArgs) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
 
-  if (!apiKey || !from) {
+  if (!apiKey || !process.env.RESEND_FROM_EMAIL) {
     throw new Error("Email sending is not configured.");
   }
+
+  const from = buildFromHeader(fromName);
 
   const payload: Record<string, unknown> = {
     from,

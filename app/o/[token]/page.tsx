@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getCompletedDraftByDeliveryToken } from "@/lib/db/queries";
+import { htmlToText } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +11,48 @@ type ObituaryPageProps = {
     token: string;
   }>;
 };
+
+function buildPreviewSnippet(content: string) {
+  const text = htmlToText(content).replaceAll(/\s+/g, " ").trim();
+  if (text.length <= 200) return text;
+  return `${text.slice(0, 200).trimEnd()}…`;
+}
+
+export async function generateMetadata({
+  params,
+}: ObituaryPageProps): Promise<Metadata> {
+  const { token } = await params;
+  const view = await getCompletedDraftByDeliveryToken(token).catch(() => null);
+
+  if (!view) {
+    return {
+      title: "Obituary",
+      robots: { index: false, follow: false, nocache: true },
+    };
+  }
+
+  const title = view.branding?.organization_name
+    ? `${view.fullName} — ${view.branding.organization_name}`
+    : `${view.fullName} — Obituary`;
+  const description = buildPreviewSnippet(view.completed.content);
+
+  return {
+    title,
+    description,
+    robots: { index: false, follow: false, nocache: true },
+    openGraph: {
+      title,
+      description,
+      type: "article",
+      siteName: view.branding?.organization_name ?? undefined,
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+    },
+  };
+}
 
 export default async function PublicObituaryPage({
   params,
