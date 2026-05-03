@@ -91,7 +91,7 @@ export default async function DeliveryTemplatePage() {
             delivered. The PDF is attached automatically and a public link to
             the obituary is included via{" "}
             <span className="font-mono text-foreground">{`{{share_link}}`}</span>
-            . You'll have a chance to review and edit the message for each
+            . You&apos;ll have a chance to review and edit the message for each
             individual case before it sends.
           </p>
         </div>

@@ -51,7 +51,7 @@ export function DeliveryForm({
           role="alert"
           className="rounded-[1.5rem] border border-warning/40 bg-warning/10 p-4 text-sm leading-6 text-foreground"
         >
-          <p className="font-semibold">We couldn't send that email.</p>
+          <p className="font-semibold">We couldn&apos;t send that email.</p>
           <p className="mt-1 text-muted">{state.error}</p>
         </div>
       ) : null}
