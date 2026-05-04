@@ -20,7 +20,7 @@ export default async function DirectorLayout({
 
     const actionSupabase = await createServerSupabaseClient();
     await actionSupabase.auth.signOut();
-    redirect("/login");
+    redirect("/");
   }
 
   return (
