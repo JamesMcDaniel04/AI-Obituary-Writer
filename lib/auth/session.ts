@@ -72,6 +72,21 @@ async function syncCurrentUserProfile(
       .single();
 
     if (insertError) {
+      // Race: another concurrent request created the row first. Re-fetch.
+      if (insertError.code === "23505") {
+        const { data: raced, error: refetchError } = await supabase
+          .from("director_profiles")
+          .select("*")
+          .eq("director_id", user.id)
+          .single();
+
+        if (refetchError) {
+          throw new Error(formatProfileSyncError(refetchError));
+        }
+
+        return raced;
+      }
+
       throw new Error(formatProfileSyncError(insertError));
     }
 

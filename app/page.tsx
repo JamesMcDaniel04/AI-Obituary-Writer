@@ -114,16 +114,16 @@ export default async function Home() {
       <section className="shell px-4 py-8 md:px-6 md:py-10">
         <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div className="rounded-[2.75rem] bg-[linear-gradient(145deg,rgba(41,26,22,0.98),rgba(143,81,48,0.94))] px-8 py-10 text-white shadow-[0_40px_90px_rgba(62,34,24,0.24)] md:px-10 md:py-12">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.22em] text-white/78">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/82">
               <Lock className="h-3.5 w-3.5" />
               Funeral-home workflow
             </div>
 
-            <h1 className="mt-6 max-w-3xl font-serif text-6xl leading-none text-white md:text-7xl">
+            <h1 className="mt-6 max-w-[11ch] font-serif text-[clamp(3.25rem,8vw,5.75rem)] leading-[0.92] tracking-[-0.03em] text-white">
               The obituary draft starts here, not on a blank page.
             </h1>
 
-            <p className="mt-6 max-w-2xl text-base leading-8 text-white/80 md:text-lg">
+            <p className="mt-6 max-w-xl text-[1.02rem] leading-7 text-white/90 md:text-[1.1rem] md:leading-8">
               Start a case, send one secure family link, and come back to a
               structured first draft you can edit, archive, and export under
               real deadline pressure.
@@ -134,7 +134,7 @@ export default async function Home() {
                 href="/login"
                 className={cn(
                   buttonClasses.base,
-                  "gap-2 bg-white text-foreground hover:bg-white/92",
+                  "gap-2 bg-white font-semibold text-foreground shadow-[0_18px_40px_rgba(24,14,10,0.18)] hover:bg-white/92",
                 )}
               >
                 Start in the workspace
@@ -142,7 +142,10 @@ export default async function Home() {
               </Link>
               <a
                 href="#workflow"
-                className={cn(buttonClasses.base, "border border-white/18 text-white hover:bg-white/10")}
+                className={cn(
+                  buttonClasses.base,
+                  "border border-white/30 bg-white/6 font-medium text-white/95 hover:bg-white/12",
+                )}
               >
                 See the workflow
               </a>
@@ -150,15 +153,29 @@ export default async function Home() {
 
             <div className="mt-10 grid gap-4 md:grid-cols-3">
               {[
-                "Three-screen operational flow",
-                "Token-based family intake",
-                "Editor, audit log, and PDF export",
+                {
+                  label: "Workflow",
+                  copy: "Three-screen operational flow for intake, drafting, and delivery.",
+                },
+                {
+                  label: "Privacy",
+                  copy: "Token-based family questionnaire with server-side validation.",
+                },
+                {
+                  label: "Output",
+                  copy: "Editable draft, audit log, and clean PDF export in one place.",
+                },
               ].map((item) => (
                 <div
-                  key={item}
-                  className="rounded-[1.5rem] bg-white/10 px-4 py-5 text-sm leading-6 text-white/82"
+                  key={item.label}
+                  className="rounded-[1.5rem] border border-white/12 bg-black/10 px-4 py-5"
                 >
-                  {item}
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/68">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-white/92">
+                    {item.copy}
+                  </p>
                 </div>
               ))}
             </div>
