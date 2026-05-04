@@ -256,7 +256,6 @@ export default async function SettingsPage() {
         <form
           action={saveSettingsAction}
           className="space-y-5"
-          encType="multipart/form-data"
         >
           <label className="block space-y-2">
             <span className="text-sm font-medium text-foreground">
