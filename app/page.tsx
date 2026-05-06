@@ -134,7 +134,7 @@ export default async function Home() {
                 href="/login"
                 className={cn(
                   buttonClasses.base,
-                  "gap-2 bg-white font-semibold text-foreground shadow-[0_18px_40px_rgba(24,14,10,0.18)] hover:bg-white/92",
+                  "gap-2 bg-white font-semibold text-accent! shadow-[0_18px_40px_rgba(24,14,10,0.18)] hover:bg-white/92",
                 )}
               >
                 Start in the workspace
@@ -144,7 +144,7 @@ export default async function Home() {
                 href="#workflow"
                 className={cn(
                   buttonClasses.base,
-                  "border border-white/30 bg-white/6 font-medium text-white/95 hover:bg-white/12",
+                  "border border-white/40 bg-white/10 font-medium text-white! hover:bg-white/20",
                 )}
               >
                 See the workflow
@@ -348,7 +348,7 @@ export default async function Home() {
                 href="/login"
                 className={cn(
                   buttonClasses.base,
-                  "gap-2 bg-white text-foreground hover:bg-white/92",
+                  "gap-2 bg-white font-semibold text-accent! shadow-[0_18px_40px_rgba(24,14,10,0.18)] hover:bg-white/92",
                 )}
               >
                 Enter workspace
