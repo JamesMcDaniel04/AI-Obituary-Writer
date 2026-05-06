@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
+import type { Json } from "@/lib/db/types";
 import { getRequiredEnv } from "@/lib/env";
 import { getStripe } from "@/lib/stripe/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
     .insert({
       id: event.id,
       type: event.type,
-      payload: event as unknown as Record<string, unknown>,
+      payload: structuredClone(event) as unknown as Json,
     })
     .select("id")
     .maybeSingle();
