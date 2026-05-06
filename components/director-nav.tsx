@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  CreditCard,
   FolderOpen,
   FileText,
   LayoutDashboard,
@@ -42,6 +43,11 @@ const baseNavItems: NavItem[] = [
     label: "Settings",
     icon: Settings,
     match: ["/settings", "/branding"],
+  },
+  {
+    href: "/billing",
+    label: "Billing",
+    icon: CreditCard,
   },
 ];
 

@@ -132,33 +132,69 @@ export type Database = {
       director_profiles: {
         Row: {
           created_at: string
+          current_period_end: string | null
           director_id: string
           email: string | null
           full_name: string | null
           logo_path: string | null
           organization_name: string | null
           role: Database["public"]["Enums"]["app_role"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
+          trial_end: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          current_period_end?: string | null
           director_id: string
           email?: string | null
           full_name?: string | null
           logo_path?: string | null
           organization_name?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          trial_end?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          current_period_end?: string | null
           director_id?: string
           email?: string | null
           full_name?: string | null
           logo_path?: string | null
           organization_name?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          trial_end?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      stripe_events: {
+        Row: {
+          id: string
+          payload: Json
+          received_at: string
+          type: string
+        }
+        Insert: {
+          id: string
+          payload: Json
+          received_at?: string
+          type: string
+        }
+        Update: {
+          id?: string
+          payload?: Json
+          received_at?: string
+          type?: string
         }
         Relationships: []
       }

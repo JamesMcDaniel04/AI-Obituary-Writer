@@ -3,12 +3,24 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/db/types";
 import { getRequiredEnv } from "@/lib/env";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/cases", "/settings", "/branding"];
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/cases",
+  "/settings",
+  "/branding",
+  "/billing",
+];
+
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["trialing", "active"]);
 
 function isProtectedPath(pathname: string) {
   return PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
+}
+
+function isBillingPath(pathname: string) {
+  return pathname === "/billing" || pathname.startsWith("/billing/");
 }
 
 export async function updateSession(request: NextRequest) {
@@ -57,6 +69,29 @@ export async function updateSession(request: NextRequest) {
     dashboardUrl.pathname = "/dashboard";
     dashboardUrl.search = "";
     return NextResponse.redirect(dashboardUrl);
+  }
+
+  if (
+    user &&
+    isProtectedPath(request.nextUrl.pathname) &&
+    !isBillingPath(request.nextUrl.pathname)
+  ) {
+    const { data: profile } = await supabase
+      .from("director_profiles")
+      .select("role, subscription_status")
+      .eq("director_id", user.id)
+      .maybeSingle();
+
+    const isAdmin = profile?.role === "admin";
+    const status = profile?.subscription_status ?? null;
+    const isActive = status !== null && ACTIVE_SUBSCRIPTION_STATUSES.has(status);
+
+    if (!isAdmin && !isActive) {
+      const billingUrl = request.nextUrl.clone();
+      billingUrl.pathname = "/billing";
+      billingUrl.search = "";
+      return NextResponse.redirect(billingUrl);
+    }
   }
 
   return response;

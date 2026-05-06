@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DirectorNav } from "@/components/director-nav";
 import { requireAppSession } from "@/lib/auth/session";
+import { getSubscriptionState } from "@/lib/auth/subscription";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,22 @@ export default async function DirectorLayout({
   const session = await requireAppSession();
   const identity =
     session.profile.full_name || session.user.email || "Workspace user";
+  const subscription = getSubscriptionState(session.profile);
+  const trialEndsSoon =
+    subscription.isTrialing &&
+    subscription.trialEnd !== null &&
+    subscription.trialEnd.getTime() - Date.now() < 1000 * 60 * 60 * 24 * 3;
+  const banner = subscription.isPastDue
+    ? {
+        tone: "amber" as const,
+        text: "Payment failed. Update your card in Billing to keep workspace access.",
+      }
+    : trialEndsSoon
+      ? {
+          tone: "neutral" as const,
+          text: "Your free trial is ending soon. Add a payment method in Billing to keep going.",
+        }
+      : null;
 
   async function signOutAction() {
     "use server";
@@ -54,7 +71,26 @@ export default async function DirectorLayout({
           </div>
         </aside>
 
-        <main className="min-w-0 pb-16">{children}</main>
+        <main className="min-w-0 pb-16">
+          {banner ? (
+            <div
+              className={
+                banner.tone === "amber"
+                  ? "mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+                  : "mb-4 rounded-2xl border border-border bg-accent-soft px-4 py-3 text-sm text-foreground"
+              }
+            >
+              {banner.text}{" "}
+              <Link
+                href="/billing"
+                className="font-medium underline-offset-4 hover:underline"
+              >
+                Go to billing →
+              </Link>
+            </div>
+          ) : null}
+          {children}
+        </main>
       </div>
     </div>
   );
