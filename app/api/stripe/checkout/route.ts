@@ -32,7 +32,16 @@ export async function POST() {
         .update({ stripe_customer_id: customerId })
         .eq("director_id", session.user.id);
 
-      if (error) throw error;
+      if (error) {
+        const looksLikeMissingColumn =
+          error.code === "42703" ||
+          error.message.toLowerCase().includes("stripe_customer_id");
+        throw new Error(
+          looksLikeMissingColumn
+            ? "Database is missing the subscription columns. Apply supabase/migrations/0006_subscriptions.sql to this Supabase project."
+            : `Could not save Stripe customer (${error.code ?? "?"}): ${error.message}`,
+        );
+      }
     }
 
     const checkout = await stripe.checkout.sessions.create({
