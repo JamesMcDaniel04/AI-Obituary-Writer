@@ -147,9 +147,10 @@ function SubscribePanel({
           ${FH_PLAN_PRICE_USD} <span className="text-sm text-muted">/ month</span>
         </p>
         <p className="mt-2 text-sm leading-6 text-muted">
-          {FH_TRIAL_DAYS}-day free trial. Then ${FH_PLAN_PRICE_USD}/month until
-          you cancel. Includes the full director workspace: case intake,
-          AI-drafted obituaries, edits, exports, and delivery.
+          Explore the workspace and set up cases for free. When you're ready to
+          generate your first obituary, start a {FH_TRIAL_DAYS}-day free trial —
+          then ${FH_PLAN_PRICE_USD}/month until you cancel. Includes case
+          intake, AI-drafted obituaries, edits, exports, and delivery.
         </p>
       </div>
       {state.hasStripeCustomer && !showPastDue ? (

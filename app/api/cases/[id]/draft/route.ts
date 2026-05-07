@@ -5,6 +5,7 @@ import { generateObituary } from "@/lib/ai/provider";
 import { getLatestDraftForCase, getResponsesByCaseId, rowsToAnswerMap } from "@/lib/db/queries";
 import { getQuestionnaireProgress } from "@/lib/questions/engine";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getSubscriptionState } from "@/lib/auth/subscription";
 import { textToHtml } from "@/lib/utils";
 
 const patchSchema = z.object({
@@ -21,7 +22,7 @@ async function getManagedCase(caseId: string) {
   const session = await getCurrentAppSession();
 
   if (!session) {
-    return { user: null, caseRecord: null };
+    return { user: null, profile: null, caseRecord: null };
   }
 
   const supabase = await createServerSupabaseClient();
@@ -35,15 +36,15 @@ async function getManagedCase(caseId: string) {
     throw new Error(error.message);
   }
 
-  return { user: session.user, caseRecord };
+  return { user: session.user, profile: session.profile, caseRecord };
 }
 
 export async function POST(_: Request, { params }: RouteContext) {
   try {
     const { id } = await params;
-    const { user, caseRecord } = await getManagedCase(id);
+    const { user, profile, caseRecord } = await getManagedCase(id);
 
-    if (!user) {
+    if (!user || !profile) {
       return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
 
@@ -55,6 +56,19 @@ export async function POST(_: Request, { params }: RouteContext) {
 
     if (existingDraft) {
       return NextResponse.json({ ok: true, existing: true });
+    }
+
+    const subscription = getSubscriptionState(profile);
+
+    if (!subscription.hasAccess) {
+      return NextResponse.json(
+        {
+          error:
+            "Start your free trial to generate this obituary. You can keep editing the case details after subscribing.",
+          paymentRequired: true,
+        },
+        { status: 402 },
+      );
     }
 
     const responses = await getResponsesByCaseId(caseRecord.id);
