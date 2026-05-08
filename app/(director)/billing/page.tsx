@@ -154,10 +154,7 @@ function SubscribePanel({
         </p>
       </div>
       {state.hasStripeCustomer && !showPastDue ? (
-        <div className="flex flex-wrap gap-3">
-          <SubscribeButton label="Resubscribe" />
-          <ManageButton label="Open Stripe portal" />
-        </div>
+        <SubscribeButton label="Resubscribe" />
       ) : state.hasStripeCustomer && showPastDue ? (
         <ManageButton label="Update billing in Stripe" />
       ) : (

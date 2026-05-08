@@ -283,10 +283,9 @@ export default async function DeliverPage({ params }: DeliverPageProps) {
 
         {!emailEnabled ? (
           <div className="rounded-[1.5rem] border border-dashed border-warning/40 bg-warning/5 p-5 text-sm leading-6 text-foreground">
-            Email sending isn&apos;t configured. Set
-            <span className="mx-1 font-mono">RESEND_API_KEY</span> and
-            <span className="mx-1 font-mono">RESEND_FROM_EMAIL</span> to enable
-            delivery from this screen.
+            Email delivery isn&apos;t available right now. Copy the share link
+            above and send it to the family from your own email or messaging
+            app.
           </div>
         ) : null}
 
